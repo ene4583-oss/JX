@@ -91,20 +91,20 @@ async function generateList(snapshot) {
   const font = await output.embedFont(fontBytes, { subset: false });
   const supported = new Set(font.getCharacterSet());
   const header = await output.embedPng(await fs.readFile(path.join(__dirname, '../assets/templates/list-header.png')));
-  const edges = [18.5,37,125,235,321,375,439,488,528,586,645,714,768.5];
+  const edges = [18.17,35,114.17,212.83,290.33,368,416.83,474.5,518.83,554.83,607.17,660.5,722.33,771.17];
   let page, top, pageTotal = 0, grandTotal = 0;
-  function newPage() { page=output.addPage([792,612]);page.drawImage(header,{x:0,y:494,width:792,height:118});top=118;pageTotal=0; }
+  function newPage() { page=output.addPage([792,612]);page.drawImage(header,{x:0,y:502,width:792,height:110});top=110;pageTotal=0; }
   function line(y) { page.drawLine({start:{x:edges[0],y:612-y},end:{x:edges.at(-1),y:612-y},thickness:.6}); }
   function total(label, cents) {
-    line(top); for(const x of [edges[0],edges[10],edges[11],edges[12]])page.drawLine({start:{x,y:612-top},end:{x,y:612-top-20},thickness:.6});
-    drawText(page,font,supported,'total',label,[edges[0]+3,top+3,edges[11]-edges[0]-6,16]);
-    drawText(page,font,supported,'fee',(cents/100).toFixed(2),[edges[11]+2,top+3,edges[12]-edges[11]-4,16]);top+=20;line(top);
+    line(top); for(const x of [edges[0],edges[11],edges[12],edges[13]])page.drawLine({start:{x,y:612-top},end:{x,y:612-top-20},thickness:.6});
+    drawText(page,font,supported,'total',label,[edges[0]+3,top+3,edges[12]-edges[0]-6,16]);
+    drawText(page,font,supported,'fee',(cents/100).toFixed(2),[edges[12]+2,top+3,edges[13]-edges[12]-4,16]);top+=20;line(top);
   }
   newPage();
   snapshot.products.forEach((p,index)=>{
     const d=p.details,entry=snapshot.settings.list_entries?.[p.id]||{};
     const fee=entry.stamping_fee||'', cents=fee?Math.round(Number(fee)*100):0;
-    const values=[String(index+1),p.name,[p.address,p.area].filter(Boolean).join('\n'),p.brand,p.model,p.serial_no,d.capacity,p.product_type,d.old_reg,d.new_reg,entry.sticker_no||'',fee? (cents/100).toFixed(2):''];
+    const values=[String(index+1),p.name,[p.address,p.area].filter(Boolean).join('\n'),p.brand,d.condition||'',p.model,p.serial_no,d.capacity,p.product_type,d.old_reg,d.new_reg,entry.sticker_no||'',fee? (cents/100).toFixed(2):''];
     const height=Math.max(26,...values.map((value,i)=>wrap(font,String(value||''),8,edges[i+1]-edges[i]-6).length*9.5+8));
     check(height<=420,'客户资料太长，无法放入清单，请缩短后重试。');
     if(top+height>550){total('SUBTOTAL',pageTotal);newPage();}

@@ -59,7 +59,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.15.4', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -132,7 +132,7 @@ async function apiApp(pool, config) {
   route('put', '/api/admin/users/:id', (s, r) => s.saveUser(r.params.id, r.body, r.user.id), true);
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 3 } }).single('file');
   app.post('/api/import/preview', upload, asyncCall(async (req, res) => { check(req.file, '请选择 Excel 文件'); res.json((await imports.parse(req.file.buffer)).summary); }));
-  app.post('/api/import/commit', upload, asyncCall(async (req, res) => { check(req.file, '请选择 Excel 文件'); res.json(await service.transaction(s => imports.commit(s, req.file.buffer, text(req.body, 'company', 4), req.user.id))); }));
+  app.post('/api/import/commit', upload, asyncCall(async (req, res) => { check(req.file, '请选择 Excel 文件'); res.json(await service.transaction(s => imports.commit(s, req.file.buffer, text(req.body, 'company', 4), req.user.id, {repairMissing:req.body.repair_missing==='true'}))); }));
   staticFiles(app); app.use((req, res) => res.status(404).json({ error: '找不到页面或接口' })); app.use(errorHandler);
   app.locals.pool = pool; return app;
 }

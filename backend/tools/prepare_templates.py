@@ -92,4 +92,4 @@ for company in ['DE','MCM']:
 print('Prepared 18 flattened blank forms and layout maps')
 
 source=fitz.open(SOURCE/'List.pdf')
-source[0].get_pixmap(matrix=fitz.Matrix(3,3),clip=fitz.Rect(0,0,792,118),alpha=False).save(DEST/'list-header.png')
+source[0].get_pixmap(matrix=fitz.Matrix(3,3),clip=fitz.Rect(0,0,792,110),alpha=False).save(DEST/'list-header.png')
