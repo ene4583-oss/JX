@@ -3,9 +3,9 @@ const Excel = require('exceljs');
 const { check, id, hash, normalized, decode } = require('./util');
 const formats = require('./formats');
 const headers = ['Date', 'Name', 'Address', 'Area', 'Type', 'Baru/Lama', 'Brand', 'Model', 'S/No', 'Capacity', 'No. Daftar Lama', 'No. Daftar Baru', 'Shop/Out', 'Stamping Fee', 'Phone No.', 'No. Bill', 'Total Price', 'Caw'];
-const mappingVersion=4;
+const mappingVersion=5;
 function headerKey(value){return String(value).trim().toLowerCase().replace(/[\s._/()-]/g,'');}
-const aliases={'phonenumber':'Phone No.','phone':'Phone No.','telno':'Phone No.','telephone':'Phone No.','stampingfees':'Stamping Fee','serialno':'S/No','serialnumber':'S/No'};
+const aliases={'型号':'Model','型號':'Model','modelno':'Model','modelnumber':'Model','phonenumber':'Phone No.','phone':'Phone No.','telno':'Phone No.','telephone':'Phone No.','stampingfees':'Stamping Fee','serialno':'S/No','serialnumber':'S/No'};
 function condition(value){const v=String(value).trim().toUpperCase();return ['B','BARU','NEW'].includes(v)?'Baru':['L','LAMA','OLD'].includes(v)?'Lama':'';}
 function checkZip(buffer) {
   check(buffer.length > 0 && buffer.length <= 10 * 1024 * 1024, 'Excel 须小于 10MB');
@@ -61,7 +61,7 @@ async function commit(service, bytes, company, actor, {repairMissing=false}={}) 
     const customer = await service.createCustomer({ name: row.Name, address: row.Address, area: row.Area, phone: row['Phone No.'] }, actor);
     if(row.Area||row['Phone No.'])await service.q("UPDATE app_customers SET area=IF(area='',?,area),phone=IF(phone='',?,phone) WHERE id=?",[row.Area,row['Phone No.'],customer.id]);
     const brand = row.Brand, model = row.Model, serial = row['S/No'];
-    check(brand.length <= 150 && model.length <= 150 && serial.length <= 150, `第 ${row._row} 行品牌、型号或序号过长`);
+    check(brand.length <= 150 && model.length <= 150 && serial.length <= 150, `第 ${row._row} 行品牌、Model 或序号过长`);
     const identity = serial ? hash([customer.id, normalized(brand), normalized(model), normalized(serial)].join('\n')) : null;
     let existing=identity?await service.q('SELECT id,details,model FROM app_products WHERE identity_hash=?',[identity]):[];
     if(!existing.length&&prior.length)existing=await service.q('SELECT p.id,p.details,p.model FROM app_legacy_history h JOIN app_products p ON p.id=h.product_id WHERE h.source_hash=?',[hash(fileHash+':'+row._row)]);

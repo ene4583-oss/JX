@@ -104,7 +104,7 @@ async function generateList(snapshot) {
   snapshot.products.forEach((p,index)=>{
     const d=p.details,entry=snapshot.settings.list_entries?.[p.id]||{};
     const fee=entry.stamping_fee||'', cents=fee?Math.round(Number(fee)*100):0;
-    const values=[String(index+1),p.name,[p.address,p.area].filter(Boolean).join('\n'),p.brand,d.condition||'',p.model,p.serial_no,d.capacity,p.product_type,d.old_reg,d.new_reg,entry.sticker_no||'',fee? (cents/100).toFixed(2):''];
+    const values=[String(index+1),p.name,[p.address,p.area].filter(Boolean).join('\n'),p.brand,['B','BARU'].includes(String(d.condition||'').toUpperCase())?'B':['L','LAMA'].includes(String(d.condition||'').toUpperCase())?'L':'',p.model,p.serial_no,d.capacity,p.product_type,d.old_reg,d.new_reg,entry.sticker_no||'',fee? (cents/100).toFixed(2):''];
     const height=Math.max(26,...values.map((value,i)=>wrap(font,String(value||''),8,edges[i+1]-edges[i]-6).length*9.5+8));
     check(height<=420,'客户资料太长，无法放入清单，请缩短后重试。');
     if(top+height>550){total('SUBTOTAL',pageTotal);newPage();}

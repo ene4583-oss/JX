@@ -35,6 +35,6 @@ test('List Format paginates all products and totals decimal fees without example
   const bytes=await pdf.generateList({settings:{list_entries},products});const doc=await PDFDocument.load(bytes);assert.ok(doc.getPageCount()>1);
   const {spawnSync}=require('node:child_process');const extracted=spawnSync('pdftotext',['-layout','-','-'],{input:bytes});
   if(extracted.error?.code==='ENOENT'){t.diagnostic('pdftotext unavailable; visual text extraction check omitted');return;}
-  assert.equal(extracted.status,0);const text=extracted.stdout.toString();assert.match(text,/3\.00/);assert.doesNotMatch(text,/0\.00/);assert.match(text,/X100/);assert.match(text,/Baru/);assert.match(text,/Lama/);assert.match(text,/001234/);assert.match(text,/OLD123/);assert.match(text,/NEW456/);
+  assert.equal(extracted.status,0);const text=extracted.stdout.toString();assert.match(text,/3\.00/);assert.doesNotMatch(text,/0\.00/);assert.match(text,/X100/);assert.match(text,/\bB\b/);assert.match(text,/\bL\b/);assert.doesNotMatch(text,/\bBaru\b|\bLama\b/);assert.match(text,/001234/);assert.match(text,/OLD123/);assert.match(text,/NEW456/);
   await fs.writeFile(path.join(os.tmpdir(),'jx-list-regression.pdf'),bytes);
 });

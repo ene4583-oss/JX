@@ -29,3 +29,7 @@ test('Excel header aliases preserve area, model, condition, fee and phone number
  const book=new Excel.Workbook(),sheet=book.addWorksheet('Records');sheet.addRow(['Name','Address','Type','Brand','S/No',' area ','baru / lama','MODEL','Stamping Fee','Phone number']);sheet.addRow(['Client','Road','ATS','TEST','00001','RAUB','B','MODEL 123',8.5,'0123456789']);
  const {rows,summary}=await parse(Buffer.from(await book.xlsx.writeBuffer()));assert.equal(rows[0].Area,'RAUB');assert.equal(rows[0].Model,'MODEL 123');assert.equal(rows[0]['Baru/Lama'],'B');assert.equal(rows[0]['Stamping Fee'],'8.5');assert.equal(rows[0]['Phone No.'],'0123456789');assert.ok(summary.imported_columns.includes('Phone No.'));
 });
+
+test('Chinese 型号 and 型號 headers both import into the Model field',async()=>{
+ for(const title of ['型号','型號']){const book=new Excel.Workbook(),sheet=book.addWorksheet('Records');sheet.addRow(['Name','Address','Type','Brand','S/No',title,'Baru/Lama']);sheet.addRow(['Client','Road','ATS','TEST','000123','IMPORTANT MODEL','L']);const {rows,summary}=await parse(Buffer.from(await book.xlsx.writeBuffer()));assert.equal(rows[0].Model,'IMPORTANT MODEL');assert.ok(summary.imported_columns.includes('Model'));}
+});
