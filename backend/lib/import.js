@@ -3,7 +3,7 @@ const Excel = require('exceljs');
 const { check, id, hash, normalized, decode } = require('./util');
 const formats = require('./formats');
 const headers = ['Date', 'Name', 'Address', 'Area', 'Type', 'Baru/Lama', 'Brand', 'Model', 'S/No', 'Capacity', 'No. Daftar Lama', 'No. Daftar Baru', 'Shop/Out', 'Stamping Fee', 'Phone No.', 'No. Bill', 'Total Price', 'Caw'];
-const mappingVersion=2;
+const mappingVersion=3;
 function headerKey(value){return String(value).trim().toLowerCase().replace(/[\s._/()-]/g,'');}
 const aliases={'phonenumber':'Phone No.','phone':'Phone No.','telno':'Phone No.','telephone':'Phone No.','stampingfees':'Stamping Fee','serialno':'S/No','serialnumber':'S/No'};
 function condition(value){const v=String(value).trim().toUpperCase();return ['B','BARU','NEW'].includes(v)?'Baru':['L','LAMA','OLD'].includes(v)?'Lama':'';}
@@ -66,7 +66,7 @@ async function commit(service, bytes, company, actor) {
     let existing=identity?await service.q('SELECT id,details FROM app_products WHERE identity_hash=?',[identity]):[];
     if(!existing.length&&prior.length)existing=await service.q('SELECT p.id,p.details FROM app_legacy_history h JOIN app_products p ON p.id=h.product_id WHERE h.source_hash=?',[hash(fileHash+':'+row._row)]);
     const details = Object.fromEntries(Object.keys(formats.details).map(field => [field, '']));
-    Object.assign(details, { capacity: row.Capacity, old_reg: row['No. Daftar Lama'], new_reg: row['No. Daftar Baru'], condition: condition(row['Baru/Lama']), stamping_fee:row['Stamping Fee'], source_type: row.Type, source_date: row.Date });
+    Object.assign(details, { shop_out:row['Shop/Out'], capacity: row.Capacity, old_reg: row['No. Daftar Lama'], new_reg: row['No. Daftar Baru'], condition: condition(row['Baru/Lama']), stamping_fee:row['Stamping Fee'], source_type: row.Type, source_date: row.Date });
     const assigned = company === 'AUTO' ? (row['No. Daftar Baru'] || row['No. Daftar Lama']).toUpperCase().startsWith('CRA') ? 'MCM' : 'DE' : company;
     let product;
     if (!existing.length) {

@@ -123,7 +123,7 @@ class Service {
       const p = await this.product(productId);
       const override = input.product_overrides?.[productId];
       if (override) {
-        for (const key of ['name','address','area','brand','model','serial_no','product_type']) if(Object.hasOwn(override,key))p[key]=text(override,key,key==='address'?2000:255);
+        for (const key of ['name','address','area','phone','brand','model','serial_no','product_type']) if(Object.hasOwn(override,key))p[key]=text(override,key,key==='address'?2000:255);
         if (override.details) for(const key of Object.keys(formats.details)) if(Object.hasOwn(override.details,key))p.details[key]=text(override.details,key,key==='notes'?1000:200);
         check(p.name.trim(), '请填写客户名称');
       }
