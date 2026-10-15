@@ -168,3 +168,13 @@ test('MySQL: blank later Excel cells preserve fees and explicit repair fills mis
  await service.q('UPDATE app_products SET model=?,details=? WHERE id=?',['',JSON.stringify({notes:'Employee note'}),p.id]);await service.q('UPDATE app_customers SET area=?,phone=? WHERE id=?',['','',p.customer_id]);
  const repaired=await service.transaction(s=>imports.commit(s,bytes,'AUTO',actor,{repairMissing:true}));assert.equal(repaired.created_products,0);assert.equal(repaired.history_rows,0);assert.equal(repaired.database_products,1);p=await service.product(p.id);assert.equal(p.model,'IMPORTANT-MODEL');assert.equal(p.details.condition,'Baru');assert.equal(p.details.stamping_fee,'18.50');assert.equal(p.details.notes,'Employee note');assert.equal(Object.hasOwn(p.details,'source_date'),false);assert.equal(p.phone,'0123456789');assert.equal(p.area,'RAUB');
 });
+
+test('MySQL: 30MB upload limit permits an 11MB Excel file through preview and database storage', {skip:!enabled},async t=>{
+ const cfg=config();assert.match(cfg.dbName,/_test$/);const pool=await connect(cfg);let fileHash;
+ t.after(async()=>{if(fileHash)await pool.query('DELETE FROM app_imports WHERE file_hash=?',[fileHash]);await pool.end();});
+ const {server,base}=await start(await createApp(cfg,pool));t.after(()=>new Promise(resolve=>server.close(resolve)));const admin=client(base);await admin.login();
+ const bytes=await workbook([{Name:'Large '+crypto.randomUUID(),Address:'Road',Type:'ATP',Brand:'TEST',Model:'LARGE-MODEL','S/No':crypto.randomUUID()}]);let end=bytes.length-22;while(end>=0&&bytes.readUInt32LE(end)!==0x06054b50)end--;assert.ok(end>=0);const offset=bytes.readUInt32LE(end+16),padding=11*1024*1024,large=Buffer.concat([bytes.subarray(0,offset),Buffer.alloc(padding),bytes.subarray(offset)]);large.writeUInt32LE(offset+padding,end+padding+16);fileHash=hash(large.toString('base64'));
+ const upload=()=>{const form=new FormData();form.append('file',new Blob([large]),'large.xlsx');form.append('company','AUTO');return form;};
+ const preview=await admin.request('/api/import/preview','POST',upload());assert.equal(preview.status,200,JSON.stringify(preview.data));assert.equal(preview.data.valid_rows,1);
+ const imported=await admin.request('/api/import/commit','POST',upload());assert.equal(imported.status,200,JSON.stringify(imported.data));assert.equal(imported.data.created_products,1);assert.equal(imported.data.database_fields.Model,1);const [saved]=await pool.query('SELECT LENGTH(original_file) AS bytes FROM app_imports WHERE file_hash=?',[fileHash]);assert.equal(saved[0].bytes,large.length);
+});

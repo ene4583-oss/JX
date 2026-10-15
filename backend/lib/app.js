@@ -16,6 +16,7 @@ const formats = require('./formats');
 const pdf = require('./pdf');
 const network = require('./network');
 const imports = require('./import');
+const importLimits = require('./import-limits');
 const frontend = path.join(__dirname, '../../frontend');
 const asyncCall = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const saveSession = req => new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
@@ -24,7 +25,7 @@ function errorHandler(error, req, res, next) {
   if (res.headersSent) return next(error);
   let status = error.status || 500, message = error.message;
   if (error.code === 'ER_DUP_ENTRY') { status = 409; message = '资料已存在，请搜索并编辑已有客户或产品。'; }
-  else if (error instanceof multer.MulterError) { status = 400; message = '文件过大或上传格式不正确，请选择小于 10MB 的 Excel。'; }
+  else if (error instanceof multer.MulterError) { status = 400; message = req.path==='/api/admin/logo'?'Logo 文件最多 2MB，请选择 PNG 或 JPG。':'文件过大或上传格式不正确，Excel 文件最多 30MB。'; }
   else if (status >= 500) { console.error('Operation failed:', error.code || error.name); message = '操作失败，资料未保存。请检查数据库连接，或联系管理员。'; }
   res.status(status).json({ error: message });
 }
@@ -59,7 +60,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.15.5', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.15.6', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -130,7 +131,7 @@ async function apiApp(pool, config) {
   route('get', '/api/admin/users', s => s.users());
   route('post', '/api/admin/users', (s, r) => s.saveUser(null, r.body, r.user.id), true);
   route('put', '/api/admin/users/:id', (s, r) => s.saveUser(r.params.id, r.body, r.user.id), true);
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 3 } }).single('file');
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: importLimits.maxFileBytes, files: 1, fields: 3 } }).single('file');
   app.post('/api/import/preview', upload, asyncCall(async (req, res) => { check(req.file, '请选择 Excel 文件'); res.json((await imports.parse(req.file.buffer)).summary); }));
   app.post('/api/import/commit', upload, asyncCall(async (req, res) => { check(req.file, '请选择 Excel 文件'); res.json(await service.transaction(s => imports.commit(s, req.file.buffer, text(req.body, 'company', 4), req.user.id, {repairMissing:req.body.repair_missing==='true'}))); }));
   staticFiles(app); app.use((req, res) => res.status(404).json({ error: '找不到页面或接口' })); app.use(errorHandler);

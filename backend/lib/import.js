@@ -2,13 +2,14 @@
 const Excel = require('exceljs');
 const { check, id, hash, normalized, decode } = require('./util');
 const formats = require('./formats');
+const limits = require('./import-limits');
 const headers = ['Date', 'Name', 'Address', 'Area', 'Type', 'Baru/Lama', 'Brand', 'Model', 'S/No', 'Capacity', 'No. Daftar Lama', 'No. Daftar Baru', 'Shop/Out', 'Stamping Fee', 'Phone No.', 'No. Bill', 'Total Price', 'Caw'];
 const mappingVersion=5;
 function headerKey(value){return String(value).trim().toLowerCase().replace(/[\s._/()-]/g,'');}
 const aliases={'型号':'Model','型號':'Model','modelno':'Model','modelnumber':'Model','phonenumber':'Phone No.','phone':'Phone No.','telno':'Phone No.','telephone':'Phone No.','stampingfees':'Stamping Fee','serialno':'S/No','serialnumber':'S/No'};
 function condition(value){const v=String(value).trim().toUpperCase();return ['B','BARU','NEW'].includes(v)?'Baru':['L','LAMA','OLD'].includes(v)?'Lama':'';}
 function checkZip(buffer) {
-  check(buffer.length > 0 && buffer.length <= 10 * 1024 * 1024, 'Excel 须小于 10MB');
+  check(buffer.length > 0 && buffer.length <= limits.maxFileBytes, 'Excel 文件最多 30MB');
   let end = -1;
   for (let offset = buffer.length - 22; offset >= Math.max(0, buffer.length - 65557); offset--) if (buffer.readUInt32LE(offset) === 0x06054b50) { end = offset; break; }
   check(end >= 0, '请上传未加密的 .xlsx 文件');
@@ -17,7 +18,7 @@ function checkZip(buffer) {
   for (let i = 0; i < entries; i++) {
     check(offset + 46 <= buffer.length && buffer.readUInt32LE(offset) === 0x02014b50, 'Excel 文件损坏');
     check(!(buffer.readUInt16LE(offset + 8) & 1), '不支持加密 Excel');
-    total += buffer.readUInt32LE(offset + 24); check(total <= 80 * 1024 * 1024, 'Excel 解压后过大');
+    total += buffer.readUInt32LE(offset + 24); check(total <= limits.maxExpandedBytes, 'Excel 解压后过大');
     offset += 46 + buffer.readUInt16LE(offset + 28) + buffer.readUInt16LE(offset + 30) + buffer.readUInt16LE(offset + 32);
   }
 }
@@ -35,7 +36,7 @@ async function parse(bytes) {
   checkZip(bytes);
   const workbook = new Excel.Workbook();
   try { await workbook.xlsx.load(bytes); } catch { check(false, '无法读取 Excel，请上传未加密的 .xlsx 文件'); }
-  const sheet = workbook.worksheets[0]; check(sheet && sheet.rowCount <= 20001, '每次最多导入 20,000 行');
+  const sheet = workbook.worksheets[0]; check(sheet && sheet.rowCount <= limits.maxDataRows+1, '每次最多导入 50,000 行');
   const canonical=new Map(headers.map(h=>[headerKey(h),h]));const columns=new Map();sheet.getRow(1).eachCell((cell,index)=>{const key=headerKey(cellValue(cell)),name=canonical.get(key)||aliases[key];if(name){check(!columns.has(name),'重复的 Excel 栏位：'+name);columns.set(name,index);}});
   check(['Name', 'Address', 'Type', 'Brand', 'S/No'].every(key => columns.has(key)), '标题行必须包含 Name、Address、Type、Brand、S/No，请使用 2025.xlsx 格式');
   const rows = [], unknown = {}; let blank = 0, incomplete = 0;
@@ -55,6 +56,7 @@ async function commit(service, bytes, company, actor, {repairMissing=false}={}) 
   const fileHash = hash(bytes.toString('base64'));
   const prior = await service.q('SELECT result FROM app_imports WHERE file_hash=?', [fileHash]);
   if (prior.length && !repairMissing && decode(prior[0].result).mapping_version===mappingVersion) return { ...decode(prior[0].result), already_imported: true };
+  if(!prior.length){const packet=await service.q('SELECT @@max_allowed_packet AS max_packet');check(bytes.length+1024*1024<Number(packet[0].max_packet),'此文件超过当前 MySQL 的单次传输容量。请将 MySQL max_allowed_packet 设置为 64M，重启 MySQL 和网站后重试。');}
   const { rows, summary } = await parse(bytes); check(rows.length, '没有可导入的记录');
   let created = 0, updated = 0, history = 0;const touched=new Set();
   for (const row of rows) {
@@ -86,7 +88,7 @@ async function commit(service, bytes, company, actor, {repairMissing=false}={}) 
   const databaseFields=Object.fromEntries(['Area','Baru/Lama','Model','Shop/Out','Stamping Fee','Phone No.'].map(k=>[k,0]));
   const productIds=[...touched];for(let i=0;i<productIds.length;i+=500){const batch=productIds.slice(i,i+500),saved=await service.q('SELECT p.model,p.details,c.area,c.phone FROM app_products p JOIN app_customers c ON c.id=p.customer_id WHERE p.id IN ('+batch.map(()=>'?').join(',')+')',batch);for(const p of saved){const d=decode(p.details);for(const [field,value]of Object.entries({'Area':p.area,'Baru/Lama':d.condition,'Model':p.model,'Shop/Out':d.shop_out,'Stamping Fee':d.stamping_fee,'Phone No.':p.phone}))if(value!=null&&String(value)!=='')databaseFields[field]++;}}
   const result = { ...summary, database_fields:databaseFields, database_products:productIds.length, mapping_version:mappingVersion, repaired_import:!!prior.length, created_products: created, updated_rows: updated, history_rows: history, company, already_imported: false };
-  if(prior.length)await service.q('UPDATE app_imports SET result=? WHERE file_hash=?',[JSON.stringify(result),fileHash]);else await service.q('INSERT INTO app_imports(file_hash,created_by,result,original_file) VALUES (?,?,?,?)', [fileHash, actor, JSON.stringify(result), bytes]);
+  if(prior.length)await service.q('UPDATE app_imports SET result=? WHERE file_hash=?',[JSON.stringify(result),fileHash]);else await service.db.execute('INSERT INTO app_imports(file_hash,created_by,result,original_file) VALUES (?,?,?,?)', [fileHash, actor, JSON.stringify(result), bytes]);
   await service.audit(actor, 'excel.import', fileHash); return result;
 }
 module.exports = { parse, commit, headers, checkZip };

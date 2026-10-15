@@ -21,7 +21,7 @@ test('Excel reads the existing 18 columns, confirms aliases, and flags unknown t
 });
 test('invalid and oversized Excel containers are rejected', async () => {
   await assert.rejects(parse(Buffer.from('not an xlsx')), /xlsx/);
-  await assert.rejects(parse(Buffer.alloc(11 * 1024 * 1024)), /10MB/);
+  await assert.rejects(parse(Buffer.alloc(31 * 1024 * 1024)), /30MB/);
 });
 module.exports = { fixture };
 
@@ -32,4 +32,21 @@ test('Excel header aliases preserve area, model, condition, fee and phone number
 
 test('Chinese 型号 and 型號 headers both import into the Model field',async()=>{
  for(const title of ['型号','型號']){const book=new Excel.Workbook(),sheet=book.addWorksheet('Records');sheet.addRow(['Name','Address','Type','Brand','S/No',title,'Baru/Lama']);sheet.addRow(['Client','Road','ATS','TEST','000123','IMPORTANT MODEL','L']);const {rows,summary}=await parse(Buffer.from(await book.xlsx.writeBuffer()));assert.equal(rows[0].Model,'IMPORTANT MODEL');assert.ok(summary.imported_columns.includes('Model'));}
+});
+
+test('Excel accepts more than 20,000 rows and rejects more than 50,000 data rows',async()=>{
+ const book=new Excel.Workbook(),sheet=book.addWorksheet('Records');sheet.addRow(headers);
+ for(let i=0;i<25000;i++)sheet.addRow(['','Customer '+i]);
+ const result=await parse(Buffer.from(await book.xlsx.writeBuffer()));assert.equal(result.summary.valid_rows,25000);
+ sheet.getCell(50002,2).value='Too many rows';
+ await assert.rejects(parse(Buffer.from(await book.xlsx.writeBuffer())),/50,000/);
+});
+
+test('Excel ZIP checks accept a valid container above 10MB within the new upload limit',async()=>{
+ const bytes=await fixture([{Name:'Customer',Type:'ATP',Brand:'TEST'}]);
+ let end=bytes.length-22;while(end>=0&&bytes.readUInt32LE(end)!==0x06054b50)end--;
+ assert.ok(end>=0);const offset=bytes.readUInt32LE(end+16),padding=11*1024*1024;
+ const large=Buffer.concat([bytes.subarray(0,offset),Buffer.alloc(padding),bytes.subarray(offset)]);large.writeUInt32LE(offset+padding,end+padding+16);
+ const {checkZip}=require('../lib/import');assert.doesNotThrow(()=>checkZip(large));
+ const result=await parse(large);assert.equal(result.summary.valid_rows,1);
 });
