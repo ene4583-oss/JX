@@ -1,0 +1,9 @@
+.git
+archive
+**/node_modules
+**/.env
+**/.env.*
+!**/.env.example
+**/target
+**/*.log
+**/*.xlsx

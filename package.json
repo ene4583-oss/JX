@@ -1,0 +1,12 @@
+{
+  "name": "jianxu-system",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Simple Node.js + HTML + MySQL portal",
+  "scripts": {
+    "start": "npm --prefix backend start",
+    "install:app": "npm --prefix backend ci --omit=dev",
+    "test": "npm --prefix backend test"
+  },
+  "engines": { "node": ">=22" }
+}

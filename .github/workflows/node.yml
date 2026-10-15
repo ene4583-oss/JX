@@ -1,0 +1,39 @@
+name: Node portal
+on:
+  push:
+    paths: ['backend/**', 'frontend/**', '.github/workflows/node.yml', 'package.json']
+  pull_request:
+    paths: ['backend/**', 'frontend/**', '.github/workflows/node.yml', 'package.json']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: jianxu_ci_test
+          MYSQL_ROOT_PASSWORD: integration-only-password
+          MYSQL_ROOT_HOST: '%'
+        ports: ['3307:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost --silent"
+          --health-interval=10s --health-timeout=5s --health-retries=15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm test
+        env:
+          RUN_MYSQL_TESTS: 'true'
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_PORT: '3307'
+          TEST_DB_NAME: jianxu_ci_test
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: integration-only-password
