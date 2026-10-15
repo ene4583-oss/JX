@@ -109,3 +109,22 @@ test('MySQL: original admins accounts are copied as bcrypt without changing the 
   const [rows] = await pool.query('SELECT password_hash FROM app_users WHERE username=?', [username]); assert.ok(await bcrypt.compare(password, rows[0].password_hash.slice(8)));
   const [legacy] = await pool.query('SELECT password FROM admins WHERE username=?', [username]); assert.equal(legacy[0].password, password);
 });
+test('MySQL: local admin recovery creates a login and revokes the old password/session', { skip: !enabled }, async t => {
+  const cfg = config(); assert.match(cfg.dbName, /_test$/);
+  const pool = await connect(cfg); t.after(() => pool.end());
+  const { setAdmin } = require('../tools/set-admin-password');
+  const username = 'recover_' + crypto.randomUUID().slice(0, 8);
+  const first = await setAdmin(pool, username, 'Recovery-first-password-2026');
+  const before = (await pool.query('SELECT COUNT(*) AS count FROM app_products'))[0][0].count;
+  const stored = (await pool.query('SELECT password_hash,role,active FROM app_users WHERE id=?', [first.id]))[0][0];
+  assert.ok(await bcrypt.compare('Recovery-first-password-2026', stored.password_hash.slice(8)));
+  assert.equal(stored.role, 'ADMIN'); assert.equal(stored.active, 1);
+  const { server, base } = await start(await createApp(cfg, pool)); t.after(() => new Promise(resolve => server.close(resolve)));
+  const account = client(base); await account.login(username, 'Recovery-first-password-2026');
+  const updated = await setAdmin(pool, username, 'Recovery-second-password-2026'); assert.equal(updated.id, first.id);
+  assert.equal((await account.request('/api/products')).status, 401);
+  await account.login(username, 'Recovery-second-password-2026');
+  assert.equal((await account.request('/api/auth')).data.user.role, 'ADMIN');
+  await assert.rejects(setAdmin(pool, username, 'short'), /12 characters/);
+  assert.equal((await pool.query('SELECT COUNT(*) AS count FROM app_products'))[0][0].count, before);
+});
