@@ -10,7 +10,7 @@ const { check, id } = require('../lib/util');
 // Local recovery only: this file is not exposed by the web server.
 async function setAdmin(pool, username, password) {
   check(typeof username === 'string' && /^[A-Za-z0-9_.@-]{3,80}$/.test(username), 'Username must be 3-80 letters, numbers, or _.@-');
-  check(typeof password === 'string' && password.length >= 12 && Buffer.byteLength(password) <= 72, 'Password must have at least 12 characters and at most 72 UTF-8 bytes.');
+  check(typeof password === 'string' && password.length >= 8 && Buffer.byteLength(password) <= 72, 'Password must have at least 8 characters and at most 72 UTF-8 bytes.');
   const encoded = '{bcrypt}' + await bcrypt.hash(password, 12);
   const connection = await pool.getConnection();
   try {
@@ -43,7 +43,7 @@ async function main() {
     console.log('Create or reset the website administrator. This is NOT your MySQL password.');
     const username = (await prompt.question('Username [admin]: ')).trim() || 'admin';
     console.log('Password input is hidden: no characters or stars will appear.');
-    const password = await askSecret('New password (at least 12 characters): ');
+    const password = await askSecret('New password (at least 8 characters): ');
     const confirmation = await askSecret('Confirm new password: ');
     check(password === confirmation, 'Passwords do not match. Nothing was changed.');
     pool = mysql.createPool(options(config));

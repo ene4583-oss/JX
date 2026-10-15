@@ -9,7 +9,7 @@
 2. 确认你的 **MySQL 正在运行**。原有 `jx_stamping_db` 可以直接使用；先做好备份。
 3. 在 GitHub 点击 **Code → Download ZIP**，解压后找到并双击根目录 **`start-windows.bat`**（或 `启动网站.bat`，两者相同）。
 4. 第一次会自动安装依赖并打开浏览器。在网页填写 **MySQL 用户名、密码、地址和数据库名**，点击保存。不需要编辑代码或 IntelliJ 运行配置。
-5. 有原来的 `admins` 表时使用原账号登录；空库请展开「首次管理员账号」，设置至少12位管理员密码。
+5. 有原来的 `admins` 表时使用原账号登录；空库请展开「首次管理员账号」，设置至少8位管理员密码。
 6. 登录后，管理员进入「Excel 导入」，选择 `2025.xlsx`，先检查再导入，然后在「员工账号」新增每位员工的个人账号。
 
 以后使用：**启动 MySQL → 双击 `start-windows.bat` → 登录**。启动窗口要保持开启；关闭窗口会停止网站。
@@ -22,7 +22,7 @@
 在服务器本机双击根目录 **`set-admin-password.bat`**：
 
 1. `Username [admin]:` 直接按 Enter 使用 admin，或填写需要恢复的账号。
-2. `New password` 输入你自己的新密码（至少12位），再按 Enter。
+2. `New password` 输入你自己的新密码（至少8位），再按 Enter。
 3. `Confirm new password` 再输入一次。
 4. 出现 `Administrator saved` 后，启动网站并使用这个账号和新密码登录。
 

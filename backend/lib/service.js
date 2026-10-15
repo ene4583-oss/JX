@@ -146,7 +146,7 @@ class Service {
     check(/^[A-Za-z0-9_.@-]{3,80}$/.test(username), '用户名须为 3–80 位英文字母、数字或 _.@-');
     check(['ADMIN', 'EMPLOYEE'].includes(role), '角色不正确');
     const password = input.password ?? ''; check(typeof password === 'string', '密码格式不正确');
-    if (!existing || password) check(password.length >= 12 && Buffer.byteLength(password) <= 72, '密码须至少 12 个字，且最多 72 字节');
+    if (!existing || password) check(password.length >= 8 && Buffer.byteLength(password) <= 72, '密码须至少 8 个字，且最多 72 字节');
     const userId = existing || id();
     if (!existing) await this.q('INSERT INTO app_users(id,username,password_hash,role) VALUES (?,?,?,?)', [userId, username, '{bcrypt}' + await bcrypt.hash(password, 12), role]);
     else {

@@ -34,7 +34,7 @@ async function importUsers(pool, config) {
   if (!users[0].count) {
     const username = config.adminUsername || 'admin', password = config.adminPassword || '';
     check(/^[A-Za-z0-9_.@-]{3,80}$/.test(username), '管理员用户名须为 3–80 位英文字母、数字或 _.@-');
-    check(password.length >= 12 && Buffer.byteLength(password) <= 72, '数据库没有账号，请填写至少 12 位的首次管理员密码');
+    check(password.length >= 8 && Buffer.byteLength(password) <= 72, '数据库没有账号，请填写至少 8 位的首次管理员密码');
     await pool.query("INSERT INTO app_users(id,username,password_hash,role) VALUES (?,?,?,'ADMIN')", [id(), username, '{bcrypt}' + await bcrypt.hash(password, 12)]);
   }
 }
