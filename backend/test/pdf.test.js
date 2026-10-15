@@ -28,3 +28,13 @@ test('confirmed type mapping and calendar validation reject incorrect choices', 
   assert.throws(() => date('2026-02-30'));
   assert.equal(date('2024-02-29'), '2024-02-29');
 });
+
+test('List Format paginates all products and totals decimal fees without example totals', async t => {
+  const products=Array.from({length:30},(_,i)=>({id:String(i),company:'DE',product_type:'ATP',name:'Customer '+i,address:'123 Test Road',area:'RAUB',brand:'TEST BRAND',model:'X100',serial_no:'001234',details:{capacity:'30kg',old_reg:'OLD123',new_reg:'NEW456'}}));
+  const list_entries=Object.fromEntries(products.map(p=>[p.id,{stamping_fee:'0.10',sticker_no:'LABEL123'}]));
+  const bytes=await pdf.generateList({settings:{list_entries},products});const doc=await PDFDocument.load(bytes);assert.ok(doc.getPageCount()>1);
+  const {spawnSync}=require('node:child_process');const extracted=spawnSync('pdftotext',['-layout','-','-'],{input:bytes});
+  if(extracted.error?.code==='ENOENT'){t.diagnostic('pdftotext unavailable; visual text extraction check omitted');return;}
+  assert.equal(extracted.status,0);const text=extracted.stdout.toString();assert.match(text,/3\.00/);assert.doesNotMatch(text,/0\.00/);assert.match(text,/X100/);assert.match(text,/001234/);assert.match(text,/OLD123/);assert.match(text,/NEW456/);
+  await fs.writeFile(path.join(os.tmpdir(),'jx-list-regression.pdf'),bytes);
+});

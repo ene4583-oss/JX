@@ -25,7 +25,7 @@ function client(base) {
       else if (body !== undefined) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
       const response = await fetch(base + route, options);
       const set = response.headers.getSetCookie(); if (set.length) cookie = set[0].split(';')[0];
-      const data = response.headers.get('content-type')?.includes('application/pdf') ? Buffer.from(await response.arrayBuffer()) : await response.json();
+      const data = /application\/pdf|spreadsheetml/.test(response.headers.get('content-type')||'') ? Buffer.from(await response.arrayBuffer()) : await response.json();
       if (data.csrf) csrf = data.csrf;
       return { status: response.status, data };
     },
@@ -127,4 +127,24 @@ test('MySQL: local admin recovery creates a login and revokes the old password/s
   assert.equal((await account.request('/api/auth')).data.user.role, 'ADMIN');
   await assert.rejects(setAdmin(pool, username, 'Test123'), /8 characters/);
   assert.equal((await pool.query('SELECT COUNT(*) AS count FROM app_products'))[0][0].count, before);
+});
+
+test('MySQL: Excel export, list fees and saved-form corrections/deletion preserve products', { skip: !enabled }, async t => {
+  const cfg=config();assert.match(cfg.dbName,/_test$/);const pool=await connect(cfg);t.after(()=>pool.end());
+  const {server,base}=await start(await createApp(cfg,pool));t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const owner=client(base),other=client(base),admin=client(base);await admin.login();
+  const username='export_'+crypto.randomUUID().slice(0,8);await admin.request('/api/admin/users','POST',{username,password:'Test1234',role:'EMPLOYEE'});await owner.login(username,'Test1234');await other.login();
+  const created=await owner.request('/api/products','POST',{customer:{name:'Original customer',address:'Original Road',phone:'0123456789'},company:'DE',product_type:'ATP',brand:'BRAND',model:'MODEL',serial_no:crypto.randomUUID(),details:{capacity:'30kg',old_reg:'OLD001',new_reg:'NEW002'}});assert.equal(created.status,200);const p=created.data;
+  const input={product_ids:[p.id],company:'MCM',stamping_date:'2026-10-15',title:'Export test',request_id:crypto.randomUUID(),bill_no:'B001',list_entries:{[p.id]:{stamping_fee:'12.30',sticker_no:'LABEL001'}}};
+  const bad=await owner.request('/api/jobs/list-preview','POST',{...input,list_entries:{[p.id]:{stamping_fee:'-1'}}});assert.equal(bad.status,400);
+  const list=await owner.request('/api/jobs/list-preview','POST',input);assert.equal(list.status,200);assert.equal((await PDFDocument.load(list.data)).getPageCount(),1);
+  const saved=await owner.request('/api/jobs','POST',input);assert.equal(saved.status,200);const jobId=saved.data.id;
+  let exported=await fetch(base+'/api/jobs/'+jobId+'/export.xlsx');assert.equal(exported.status,401);
+  const bytes=(await owner.request('/api/jobs/'+jobId+'/export.xlsx')).data;const book=new Excel.Workbook();await book.xlsx.load(bytes);const sheet=book.worksheets[0];assert.deepEqual(sheet.getRow(1).values.slice(1),headers);assert.equal(sheet.getCell('O2').text,'0123456789');assert.equal(sheet.getCell('N2').value,12.3);assert.equal(sheet.getCell('L2').text,'NEW002');
+  const settings={...input,title:'Corrected',product_overrides:{[p.id]:{name:'Corrected customer',address:'Correct Road',brand:'FIXED',details:{capacity:'60kg'}}}};
+  const outsiderName='outsider_'+crypto.randomUUID().slice(0,8);await admin.request('/api/admin/users','POST',{username:outsiderName,password:'Test1234',role:'EMPLOYEE'});const outsider=client(base);await outsider.login(outsiderName,'Test1234');assert.equal((await outsider.request('/api/jobs/'+jobId,'PUT',settings)).status,403);assert.equal((await outsider.request('/api/jobs/'+jobId,'DELETE')).status,403);
+  assert.equal((await owner.request('/api/jobs/'+jobId,'PUT',settings)).status,200);const corrected=(await owner.request('/api/jobs/'+jobId)).data;assert.equal(corrected.snapshot.products[0].name,'Corrected customer');assert.equal(corrected.snapshot.products[0].details.capacity,'60kg');
+  const afterBook=new Excel.Workbook();await afterBook.xlsx.load((await owner.request('/api/jobs/'+jobId+'/export.xlsx')).data);assert.equal(afterBook.worksheets[0].getCell('B2').text,'Corrected customer');
+  assert.equal((await owner.request('/api/products/'+p.id)).data.name,'Original customer');assert.equal((await owner.request('/api/jobs/'+jobId+'/list.pdf')).status,200);
+  assert.equal((await owner.request('/api/jobs/'+jobId,'DELETE',undefined,true)).status,403);assert.equal((await owner.request('/api/jobs/'+jobId,'DELETE')).status,200);assert.equal((await owner.request('/api/jobs/'+jobId+'/pdf')).status,404);assert.equal((await owner.request('/api/products/'+p.id)).status,200);
 });

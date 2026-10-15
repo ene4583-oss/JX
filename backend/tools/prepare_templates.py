@@ -1,5 +1,5 @@
 """Build redacted, flattened templates and field coordinates from the supplied originals.
-Requires pymupdf and Pillow. Runtime Java does not require Python.
+Requires pymupdf and Pillow. The Node.js runtime does not require Python.
 All coordinates are PDF points measured from the top-left of a 540 x 780 page.
 """
 import fitz, json, pathlib
@@ -41,6 +41,11 @@ for company in ['DE','MCM']:
    for i,y in enumerate(ys):spec['checks'].append(box('check_'+str(i+1),{'Ya':[362 if company=='DE' else 430,y,37 if company=='DE' else 10,12],'Tidak':[439 if company=='DE' else 477,y,37 if company=='DE' else 10,12]}))
   else:
    for i,y in enumerate([298,316,342,359,383,403,424,442]):spec['checks'].append(box('check_'+str(i+1),{'Ya':[365,y,16,10],'Tidak':[391,y,16,10]}))
+# Coordinates calibrated against the supplied scans, preserving the original boxes.
+CHECK_CORRECTIONS = {'DE/ATP': {'usage': {'Perdagangan': [179.5, 172.5, 41, 11.5], 'Bukan Perdagangan': [179.5, 195, 41, 12]}, 'indicator': {'Digital': [348, 326, 41.5, 11], 'Dail': [430.5, 326, 41.5, 11]}, 'condition': {'Baru': [348, 370, 41.5, 11], 'Lama': [430.5, 370, 41.5, 11]}}, 'DE/ATE': {'condition': {'Baru': [340, 475, 44, 9], 'Lama': [423, 475, 43, 9]}}, 'MCM/ATN': {'usage': {'Perdagangan': [183.5, 222, 21, 19.5], 'Bukan Perdagangan': [183.5, 251.5, 21, 19.5]}, 'instrument_kind': {'Pedestal': [324, 350.5, 23.5, 19.5], 'Suspended': [441, 350.5, 23, 19.5]}, 'tray': {'Mangkuk': [324, 488.5, 23, 19.5], 'Rata': [440.5, 488.5, 23.5, 19.5]}, 'condition': {'Baru': [324, 548, 23.5, 19.5], 'Lama': [440.5, 548, 23.5, 19.5]}}, 'MCM/ATS': {'usage': {'Perdagangan': [164.5, 241, 21, 11], 'Bukan Perdagangan': [164.5, 263.5, 21, 11.5]}, 'condition': {'Baru': [310.5, 468, 24.5, 14], 'Lama': [416.5, 468, 24, 14]}}, 'MCM/ATP': {'usage': {'Perdagangan': [187.5, 196.5, 20, 10], 'Bukan Perdagangan': [187.5, 217, 20, 10]}, 'indicator': {'Digital': [278, 354, 18.5, 14.5], 'Dail': [338.5, 354, 20, 14.5]}, 'condition': {'Baru': [278, 454, 18.5, 14.5], 'Lama': [339.5, 454, 20, 14.5]}}, 'MCM/ATE': {'usage': {'Perdagangan': [168, 224.5, 23, 9.5], 'Bukan Perdagangan': [168, 244.5, 23, 9.5]}, 'condition': {'Baru': [377.5, 460.5, 20, 19.5], 'Lama': [456, 460.5, 21, 19.5]}}, 'DE/BTU': {'usage': {'Perdagangan': [222, 244, 24.5, 19.5], 'Bukan Perdagangan': [222, 275, 24.5, 20]}, 'condition': {'Baru': [325, 475, 30, 10], 'Lama': [414.5, 475, 36.5, 10]}, 'material': {'Besi Tuangan': [414, 285.5, 36.5, 9.5], 'Tembaga': [414, 316, 36.5, 9.5], 'Zamrud': [414, 346.5, 36.5, 9.5], 'Lain-lain': [414, 377, 36.5, 10]}}, 'DE/ATL': {'check_1': {'Ya': [362, 301, 17, 9], 'Tidak': [402.5, 301, 19.5, 9]}, 'check_2': {'Ya': [362, 319, 17, 9], 'Tidak': [402.5, 319, 19.5, 9]}, 'check_3': {'Ya': [362, 337.5, 17, 9], 'Tidak': [402.5, 337.5, 19.5, 9]}, 'check_4': {'Ya': [362, 355.5, 17, 9], 'Tidak': [402.5, 355.5, 19.5, 9]}, 'check_5': {'Ya': [362, 371, 17, 9], 'Tidak': [402.5, 371, 19.5, 9]}, 'check_6': {'Ya': [362, 398.5, 17, 9], 'Tidak': [402.5, 398.5, 19.5, 9]}, 'check_7': {'Ya': [362, 425.5, 17, 9], 'Tidak': [402.5, 425.5, 19.5, 9]}, 'check_8': {'Ya': [362, 443.5, 17, 9], 'Tidak': [402.5, 443.5, 19.5, 9]}}, 'DE/SLC': {'usage': {'Perdagangan': [427.5, 318, 47, 12], 'Bukan Perdagangan': [427.5, 342.5, 47, 12]}, 'material': {'Keluli': [149, 415, 46, 12], 'Tembaga': [149, 439, 46, 12], 'Besi Berlapis': [149, 463.5, 46, 12], 'Besi Berkilat': [149, 488.5, 46, 12]}, 'shape': {'Tirus': [427.5, 415, 47, 12], 'Tembikar': [427.5, 439, 47, 12], 'Kotak': [427.5, 463.5, 47, 12]}}, 'MCM/BTU': {'usage': {'Perdagangan': [222, 244, 24.5, 19.5], 'Bukan Perdagangan': [222, 275, 24.5, 20]}, 'condition': {'Baru': [325, 475, 30, 10], 'Lama': [414.5, 475, 36.5, 10]}, 'material': {'Besi Tuangan': [414, 285.5, 36.5, 9.5], 'Tembaga': [414, 316, 36.5, 9.5], 'Zamrud': [414, 346.5, 36.5, 9.5], 'Lain-lain': [414, 377, 36.5, 10]}}, 'MCM/ATL': {'check_1': {'Ya': [362, 301, 17, 9], 'Tidak': [402.5, 301, 19.5, 9]}, 'check_2': {'Ya': [362, 319, 17, 9], 'Tidak': [402.5, 319, 19.5, 9]}, 'check_3': {'Ya': [362, 337.5, 17, 9], 'Tidak': [402.5, 337.5, 19.5, 9]}, 'check_4': {'Ya': [362, 355.5, 17, 9], 'Tidak': [402.5, 355.5, 19.5, 9]}, 'check_5': {'Ya': [362, 371, 17, 9], 'Tidak': [402.5, 371, 19.5, 9]}, 'check_6': {'Ya': [362, 398.5, 17, 9], 'Tidak': [402.5, 398.5, 19.5, 9]}, 'check_7': {'Ya': [362, 425.5, 17, 9], 'Tidak': [402.5, 425.5, 19.5, 9]}, 'check_8': {'Ya': [362, 443.5, 17, 9], 'Tidak': [402.5, 443.5, 19.5, 9]}}}
+for key, corrections in CHECK_CORRECTIONS.items():
+ for check in layouts[key]['checks']:
+  if check['key'] in corrections:check['options']=corrections[check['key']]
 for company in ['DE','MCM']:
  source=fitz.open(SOURCE/(company+'.pdf'));output=fitz.open()
  for index,page in enumerate(source):
@@ -65,7 +70,7 @@ for company in ['DE','MCM']:
   for check in spec['checks']:
    for value,coords in check['options'].items():
     x,y,w,h=coords
-    page.draw_rect(fitz.Rect(x-2.5,y-5,x+w+2.5,y+h+1.5),fill=(1,1,1),color=None,overlay=True)
+    page.draw_rect(fitz.Rect(x-1.5,y-3,x+w+1.5,y+h+2),fill=(1,1,1),color=None,overlay=True)
     page.draw_rect(fitz.Rect(x,y,x+w,y+h),fill=None,color=(0,0,0),width=.7,overlay=True)
   if company=='DE' and index==8:
    page.draw_rect(fitz.Rect(77,623,188,636),fill=(1,1,1),color=None,overlay=True)
@@ -76,3 +81,6 @@ for company in ['DE','MCM']:
  output.save(DEST/(company+'-blank.pdf'),garbage=4,deflate=True)
 (DEST/'layouts.json').write_text(json.dumps(layouts,indent=2,ensure_ascii=False))
 print('Prepared 18 flattened blank forms and layout maps')
+
+source=fitz.open(SOURCE/'List.pdf')
+source[0].get_pixmap(matrix=fitz.Matrix(3,3),clip=fitz.Rect(0,0,792,118),alpha=False).save(DEST/'list-header.png')

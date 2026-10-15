@@ -115,14 +115,29 @@ class Service {
     check(formats.companies.includes(input.company), '打印前请选择本次公司 DE 或 MCM');
     const settings = Object.fromEntries(['stamping_date', 'bill_no', 'branch', 'stamping_fee', 'total_price'].map(key => [key, text(input, key, 150)]));
     date(settings.stamping_date);
+    settings.list_entries = {};
+    check(input.product_overrides == null || typeof input.product_overrides === 'object' && !Array.isArray(input.product_overrides), '本次表格资料格式不正确');
+    check(input.list_entries == null || typeof input.list_entries === 'object' && !Array.isArray(input.list_entries), '清单资料格式不正确');
     const products = [];
     for (const productId of ids) {
       const p = await this.product(productId);
+      const override = input.product_overrides?.[productId];
+      if (override) {
+        for (const key of ['name','address','area','brand','model','serial_no','product_type']) if(Object.hasOwn(override,key))p[key]=text(override,key,key==='address'?2000:255);
+        if (override.details) for(const key of Object.keys(formats.details)) if(Object.hasOwn(override.details,key))p.details[key]=text(override.details,key,key==='notes'?1000:200);
+        check(p.name.trim(), '请填写客户名称');
+      }
       check(p.brand.trim(), '请先补齐产品品牌'); check(formats.types.includes(p.product_type), '产品类型待确认，请先编辑产品');
+      const entry = input.list_entries?.[productId] || {};
+      const fee = text(entry, 'stamping_fee', 20), sticker = text(entry, 'sticker_no', 80);
+      check(!fee || /^(?:0|[1-9]\d{0,6})(?:\.\d{1,2})?$/.test(fee), 'Stamping fee 须为最多两位小数的非负金额');
+      settings.list_entries[productId] = { stamping_fee: fee, sticker_no: sticker };
       products.push({ ...p, default_company: p.company, company: input.company });
     }
     return { settings, products };
   }
+  async previewList(input) { return pdf.generateList(await this.snapshot(input)); }
+  async jobList(jobId) { return pdf.generateList(decode((await this.one('SELECT snapshot FROM app_jobs WHERE id=?', [jobId])).snapshot)); }
   async preview(input) { return pdf.generate(await this.snapshot(input)); }
   async saveJob(input, user) {
     const requestId = text(input, 'request_id', 36); check(/^[0-9a-f-]{36}$/i.test(requestId), '请刷新页面后重试');
@@ -132,7 +147,23 @@ class Service {
     for (const product of snapshot.products) await this.q('INSERT INTO app_job_items(job_id,product_id) VALUES (?,?)', [jobId, product.id]);
     await this.audit(user, 'job.create', jobId); return { id: jobId };
   }
-  async jobs() { return this.q("SELECT j.id,j.title,j.stamping_date,j.created_at,u.username,JSON_LENGTH(JSON_EXTRACT(j.snapshot,'$.products')) AS count FROM app_jobs j JOIN app_users u ON u.id=j.created_by ORDER BY j.created_at DESC LIMIT 200"); }
+  async job(jobId) { const row=await this.one('SELECT id,title,created_by,snapshot FROM app_jobs WHERE id=?',[jobId]);return {...row,snapshot:decode(row.snapshot)}; }
+  async ownedJob(jobId,user) { const job=await this.job(jobId);check(user.role==='ADMIN'||job.created_by===user.id,'只能修改或删除自己保存的表格',403);return job; }
+  async updateJob(jobId,input,user) {
+    await this.ownedJob(jobId,user);const snapshot=await this.snapshot(input),bytes=await pdf.generate(snapshot);
+    await this.q('UPDATE app_jobs SET title=?,stamping_date=?,snapshot=?,pdf=? WHERE id=?',[text(input,'title',200)||'Stamping '+snapshot.settings.stamping_date,snapshot.settings.stamping_date,JSON.stringify(snapshot),bytes,jobId]);
+    await this.q('DELETE FROM app_job_items WHERE job_id=?',[jobId]);for(const p of snapshot.products)await this.q('INSERT INTO app_job_items(job_id,product_id) VALUES (?,?)',[jobId,p.id]);
+    await this.audit(user.id,'job.update',jobId);return {id:jobId};
+  }
+  async deleteJob(jobId,user) { await this.ownedJob(jobId,user);await this.q('DELETE FROM app_job_items WHERE job_id=?',[jobId]);await this.q('DELETE FROM app_jobs WHERE id=?',[jobId]);await this.audit(user.id,'job.delete',jobId);return {success:true}; }
+  async exportProducts() { const rows=await this.q(productSql+' ORDER BY p.created_at LIMIT 20001');check(rows.length<=20000,'产品超过 20,000 件，请分批导出');return require('./export').records(rows.map(p=>({p:{...p,details:decode(p.details)},settings:{},index:0}))); }
+  async exportRecords(jobId) {
+    const rows=jobId?[await this.job(jobId)]:await this.q('SELECT title,snapshot FROM app_jobs ORDER BY stamping_date,created_at');
+    const records=rows.flatMap(row=>{const snap=typeof row.snapshot==='object'&&row.snapshot.products?row.snapshot:decode(row.snapshot);return snap.products.map((p,index)=>({p,settings:snap.settings,index}));});
+    check(records.length<=20000,'记录超过 20,000 行，请按单份表格导出');
+    return require('./export').records(records);
+  }
+  async jobs() { return this.q("SELECT j.id,j.title,j.stamping_date,j.created_at,j.created_by,u.username,JSON_LENGTH(JSON_EXTRACT(j.snapshot,'$.products')) AS count FROM app_jobs j JOIN app_users u ON u.id=j.created_by ORDER BY j.created_at DESC LIMIT 200"); }
   async jobPdf(jobId) { return (await this.one('SELECT pdf FROM app_jobs WHERE id=?', [jobId])).pdf; }
   async history(productId) {
     await this.product(productId);

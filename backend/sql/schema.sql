@@ -55,3 +55,7 @@ CREATE TABLE IF NOT EXISTS app_http_sessions (
  session_id VARCHAR(128) COLLATE utf8mb4_bin PRIMARY KEY,
  expires BIGINT NOT NULL, data MEDIUMTEXT NOT NULL, INDEX session_expiry(expires)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_branding (
+ id TINYINT PRIMARY KEY, mime VARCHAR(30) NOT NULL, image MEDIUMBLOB NOT NULL
+);

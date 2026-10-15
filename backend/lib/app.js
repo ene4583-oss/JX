@@ -82,6 +82,7 @@ async function apiApp(pool, config) {
     await regenerate(req); req.session.csrf = crypto.randomBytes(32).toString('hex'); req.session.userId = user.id; req.session.version = hash(stored);
     await saveSession(req); res.json({ success: true });
   }));
+  app.get('/api/branding/logo',asyncCall(async(req,res)=>{const rows=await service.q('SELECT mime,image FROM app_branding WHERE id=1');if(!rows.length)return res.sendStatus(404);res.set('Cache-Control','no-cache').type(rows[0].mime).send(rows[0].image);}));
   app.use('/api', (req, res, next) => { check(req.user, '请先登录', 401); next(); });
   app.post('/api/logout', asyncCall(async (req, res) => { await new Promise((resolve, reject) => req.session.destroy(error => error ? reject(error) : resolve())); res.clearCookie('jx.sid', { httpOnly: true, secure: !!config.secureCookie, sameSite: 'lax' }); res.json({ success: true }); }));
   const route = (method, url, fn, transaction = false) => app[method](url, asyncCall(async (req, res) => res.json(await (transaction ? service.transaction(s => fn(s, req)) : fn(service, req)))));
@@ -103,12 +104,24 @@ async function apiApp(pool, config) {
   route('post', '/api/pairs/:id/accept', (s, r) => s.acceptPair(r.params.id, text(r.body, 'pair', 100), r.user.id), true);
   route('post', '/api/pairs/:id/items', (s, r) => s.send(r.params.id, text(r.body, 'mobile', 100), text(r.body, 'product', 36), r.user.id), true);
   app.post('/api/jobs/preview', asyncCall(async (req, res) => fileResponse(res, await service.preview(req.body), 'preview.pdf')));
+  app.post('/api/jobs/list-preview', asyncCall(async (req, res) => fileResponse(res, await service.previewList(req.body), 'list-preview.pdf')));
+  app.get('/api/jobs/:id/list.pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobList(req.params.id), 'stamping-list.pdf')));
   route('post', '/api/jobs', (s, r) => s.saveJob(r.body, r.user.id), true);
   route('get', '/api/jobs', s => s.jobs());
+  const excelResponse=(res,bytes)=>res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').attachment('2025-format-records.xlsx').send(bytes);
+  app.get('/api/library/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportProducts())));
+  app.get('/api/records/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords())));
+  app.get('/api/jobs/:id/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(req.params.id))));
+  route('get','/api/jobs/:id',(s,r)=>s.job(r.params.id));
+  route('put','/api/jobs/:id',(s,r)=>s.updateJob(r.params.id,r.body,r.user),true);
+  route('delete','/api/jobs/:id',(s,r)=>s.deleteJob(r.params.id,r.user),true);
   app.get('/api/jobs/:id/pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobPdf(req.params.id), 'stamping.pdf')));
   app.get('/api/templates/:company/:type', asyncCall(async (req, res) => fileResponse(res, await pdf.template(req.params.company, req.params.type), 'template.pdf')));
   const admin = (req, res, next) => { check(req.user.role === 'ADMIN', '此功能需要管理员权限', 403); next(); };
   app.use(['/api/admin', '/api/import'], admin);
+  const logoUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:2*1024*1024,files:1}}).single('file');
+
+  app.post('/api/admin/logo',logoUpload,asyncCall(async(req,res)=>{const bytes=req.file?.buffer;check(bytes,'请选择 PNG 或 JPG 图片');const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;check(png||jpg,'Logo 只支持 PNG 或 JPG');await service.q('INSERT INTO app_branding(id,mime,image) VALUES(1,?,?) ON DUPLICATE KEY UPDATE mime=VALUES(mime),image=VALUES(image)',[png?'image/png':'image/jpeg',bytes]);res.json({success:true});}));
   route('get', '/api/admin/users', s => s.users());
   route('post', '/api/admin/users', (s, r) => s.saveUser(null, r.body, r.user.id), true);
   route('put', '/api/admin/users/:id', (s, r) => s.saveUser(r.params.id, r.body, r.user.id), true);
