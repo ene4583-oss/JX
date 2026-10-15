@@ -1,0 +1,46 @@
+name: Windows launcher
+on:
+  push:
+    paths: ['*.bat', '.gitattributes', '.github/workflows/windows-launcher.yml']
+  pull_request:
+    paths: ['*.bat', '.gitattributes', '.github/workflows/windows-launcher.yml']
+  workflow_dispatch:
+jobs:
+  launcher:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check launcher bytes and exercise install, restart and failure paths
+        shell: powershell
+        run: |
+          $bytes = [IO.File]::ReadAllBytes((Join-Path $PWD 'start-windows.bat'))
+          if ($bytes | Where-Object { $_ -gt 127 }) { throw 'Launcher must contain ASCII only' }
+          $content = [Text.Encoding]::ASCII.GetString($bytes)
+          if ($content.Replace("`r`n", '').Contains("`n")) { throw 'Launcher must use CRLF' }
+          $stub = Join-Path $env:RUNNER_TEMP 'jx-launcher-stub'
+          New-Item -ItemType Directory -Force $stub | Out-Null
+          $lines = @(
+            '@echo off',
+            'if "%JX_STUB_FAIL_INSTALL%"=="1" exit /b 9',
+            'if not exist node_modules mkdir node_modules',
+            'echo %*>>"%TEMP%\jx-launcher-calls.log"',
+            'exit /b 0'
+          )
+          [IO.File]::WriteAllText((Join-Path $stub 'npm.cmd'), ($lines -join "`r`n") + "`r`n", [Text.Encoding]::ASCII)
+          $env:PATH = "$stub;$env:PATH"
+          $env:JX_NO_PAUSE = '1'
+          cmd /d /c start-windows.bat
+          if ($LASTEXITCODE -ne 0) { throw 'First launch failed' }
+          $log = Get-Content (Join-Path $env:TEMP 'jx-launcher-calls.log') -Raw
+          if ($log -notmatch 'ci --omit=dev' -or $log -notmatch 'start') { throw 'Expected install and startup commands' }
+          cmd /d /c start-windows.bat
+          if ($LASTEXITCODE -ne 0) { throw 'Cached launch failed' }
+          Remove-Item backend/node_modules/.jianxu-installed
+          $env:JX_STUB_FAIL_INSTALL = '1'
+          cmd /d /c start-windows.bat
+          if ($LASTEXITCODE -eq 0) { throw 'Failed installation must return an error' }
+          if (Test-Path backend/node_modules/.jianxu-installed) { throw 'Failed install must not write marker' }
+          exit 0

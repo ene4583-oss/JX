@@ -7,12 +7,12 @@
 
 1. 安装 **Node.js LTS（22 或以上，推荐 24）**：https://nodejs.org/ 。如果已经安装，直接下一步。
 2. 确认你的 **MySQL 正在运行**。原有 `jx_stamping_db` 可以直接使用；先做好备份。
-3. 在 GitHub 点击 **Code → Download ZIP**，解压后找到并双击根目录 **`启动网站.bat`**。
+3. 在 GitHub 点击 **Code → Download ZIP**，解压后找到并双击根目录 **`start-windows.bat`**（或 `启动网站.bat`，两者相同）。
 4. 第一次会自动安装依赖并打开浏览器。在网页填写 **MySQL 用户名、密码、地址和数据库名**，点击保存。不需要编辑代码或 IntelliJ 运行配置。
 5. 有原来的 `admins` 表时使用原账号登录；空库请展开「首次管理员账号」，设置至少12位管理员密码。
 6. 登录后，管理员进入「Excel 导入」，选择 `2025.xlsx`，先检查再导入，然后在「员工账号」新增每位员工的个人账号。
 
-以后使用：**启动 MySQL → 双击 `启动网站.bat` → 登录**。启动窗口要保持开启；关闭窗口会停止网站。
+以后使用：**启动 MySQL → 双击 `start-windows.bat` → 登录**。启动窗口要保持开启；关闭窗口会停止网站。
 首次设置只做一次，资料写在本机 `backend/.env`，管理员密码只以 BCrypt 散列保存到 MySQL。`.env` 被 Git 忽略，不要上传或截图给别人。
 
 如果浏览器没有自动打开，请复制启动窗口显示的完整网址。首次设置链接含临时验证信息，请只在本机打开，不要转发。没有设置验证信息的浏览器不能修改数据库连接。
@@ -43,7 +43,7 @@
 
 | 内容 | 位置 |
 |---|---|
-| 启动程序 | 根目录 `启动网站.bat` / `start.sh` |
+| 启动程序 | 根目录 `start-windows.bat` / `启动网站.bat` / `start.sh` |
 | Node.js 后端 | `backend/server.js`、`backend/lib/` |
 | 网页 | `frontend/index.html`、`app.js`、`app.css` |
 | 首次设置网页 | `frontend/setup.html`、`setup.js` |

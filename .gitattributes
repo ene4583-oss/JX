@@ -1,0 +1,2 @@
+# Preserve literal CRLF in Windows launchers and GitHub ZIP downloads.
+*.bat -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
