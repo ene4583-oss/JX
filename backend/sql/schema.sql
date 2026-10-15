@@ -63,3 +63,22 @@ CREATE TABLE IF NOT EXISTS app_branding (
 CREATE TABLE IF NOT EXISTS app_settings (
  setting_key VARCHAR(80) PRIMARY KEY, setting_value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS app_import_batch_info (
+ file_hash CHAR(64) PRIMARY KEY, filename VARCHAR(255) NOT NULL, FOREIGN KEY(file_hash) REFERENCES app_imports(file_hash) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_import_rows (
+ source_hash CHAR(64) PRIMARY KEY, file_hash CHAR(64) NOT NULL, product_id VARCHAR(36) NOT NULL,
+ FOREIGN KEY(source_hash) REFERENCES app_legacy_history(source_hash) ON DELETE CASCADE,
+ FOREIGN KEY(file_hash) REFERENCES app_imports(file_hash) ON DELETE CASCADE,
+ FOREIGN KEY(product_id) REFERENCES app_products(id), INDEX import_file(file_hash)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_import_products (
+ product_id VARCHAR(36) PRIMARY KEY, FOREIGN KEY(product_id) REFERENCES app_products(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_import_customers (
+ customer_id VARCHAR(36) PRIMARY KEY, FOREIGN KEY(customer_id) REFERENCES app_customers(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_manual_customers (
+ customer_id VARCHAR(36) PRIMARY KEY, FOREIGN KEY(customer_id) REFERENCES app_customers(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

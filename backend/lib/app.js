@@ -24,9 +24,9 @@ const regenerate = req => new Promise((resolve, reject) => req.session.regenerat
 function errorHandler(error, req, res, next) {
   if (res.headersSent) return next(error);
   let status = error.status || 500, message = error.message;
-  if (error.code === 'ER_DUP_ENTRY') { status = 409; message = '资料已存在，请搜索并编辑已有客户或产品。'; }
-  else if (error instanceof multer.MulterError) { status = 400; message = req.path==='/api/admin/logo'?'Logo 文件最多 2MB，请选择 PNG 或 JPG。':'文件过大或上传格式不正确，Excel 文件最多 30MB。'; }
-  else if (status >= 500) { console.error('Operation failed:', error.code || error.name); message = '操作失败，资料未保存。请检查数据库连接，或联系管理员。'; }
+  if (error.code === 'ER_DUP_ENTRY') { status = 409; message = 'This record already exists. Search for it and edit it.'; }
+  else if (error instanceof multer.MulterError) { status = 400; message = req.path==='/api/admin/logo'?'Choose a PNG or JPG logo up to 2MB.':'Invalid upload or file too large. Excel files must be at most 30MB.'; }
+  else if (status >= 500) { console.error('Operation failed:', error.code || error.name); message = 'The operation failed and changes were not saved. Check the database connection or contact an administrator.'; }
   res.status(status).json({ error: message });
 }
 function harden(app, config) {
@@ -60,12 +60,12 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.15.6', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.15.7', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
-      check(network.allowedOrigin(config,origin), '访问来源不正确', 403);
-      check(equal(req.get('x-csrf-token'), req.session.csrf), '登录验证过期，请刷新页面后重试', 403);
+      check(network.allowedOrigin(config,origin), 'Invalid request origin.', 403);
+      check(equal(req.get('x-csrf-token'), req.session.csrf), 'Session verification expired. Refresh and retry.', 403);
     }
     next();
   });
@@ -74,27 +74,27 @@ async function apiApp(pool, config) {
     const now = Date.now(), key = req.ip;
     if (attempts.size > 10000) for (const [key, value] of attempts) if (now - value.start > 900000) attempts.delete(key);
     let attempt = attempts.get(key); if (!attempt || now - attempt.start > 900000) { attempt = { start: now, count: 0 }; attempts.set(key, attempt); }
-    check(++attempt.count <= 40, '登录尝试过多，请 15 分钟后再试', 429);
+    check(++attempt.count <= 40, 'Too many login attempts. Try again in 15 minutes.', 429);
     const username = text(req.body, 'username', 80), password = req.body.password;
-    check(typeof password === 'string' && password.length <= 200, '用户名或密码不正确', 401);
+    check(typeof password === 'string' && password.length <= 200, 'Incorrect username or password.', 401);
     const users = await service.q('SELECT * FROM app_users WHERE username=?', [username]); const user = users[0];
     const stored = String(user?.password_hash || '');
     const encoded = stored.startsWith('{bcrypt}') ? stored.slice(8) : stored;
     // Always perform a bcrypt comparison, including for an unknown username.
     const ok = await bcrypt.compare(password, encoded.startsWith('$2') ? encoded : '$2b$12$QhNt6bEd2Skv4Lp7tV7ySOrBN0KD5ClY8VHtCQOpmkCE1aQh2Z0fG');
-    check(user && user.active && ok, '用户名或密码不正确', 401);
+    check(user && user.active && ok, 'Incorrect username or password.', 401);
     await regenerate(req); req.session.csrf = crypto.randomBytes(32).toString('hex'); req.session.userId = user.id; req.session.version = hash(stored);
     await saveSession(req); res.json({ success: true });
   }));
   app.get('/api/branding/logo',asyncCall(async(req,res)=>{const rows=await service.q('SELECT mime,image FROM app_branding WHERE id=1');if(!rows.length)return res.sendStatus(404);res.set('Cache-Control','no-cache').type(rows[0].mime).send(rows[0].image);}));
-  app.use('/api', (req, res, next) => { check(req.user, '请先登录', 401); next(); });
+  app.use('/api', (req, res, next) => { check(req.user, 'Please sign in first.', 401); next(); });
   app.post('/api/logout', asyncCall(async (req, res) => { await new Promise((resolve, reject) => req.session.destroy(error => error ? reject(error) : resolve())); res.clearCookie('jx.sid', { httpOnly: true, secure: !!config.secureCookie, sameSite: 'lax' }); res.json({ success: true }); }));
   const route = (method, url, fn, transaction = false) => app[method](url, asyncCall(async (req, res) => res.json(await (transaction ? service.transaction(s => fn(s, req)) : fn(service, req)))));
   const fileResponse = (res, bytes, name) => res.type('pdf').set('Content-Disposition', `inline; filename="${name}"`).set('Cache-Control', 'no-store').send(bytes);
   route('get', '/api/network',()=>({phone_url:service.publicUrl,addresses:network.lanUrls(config.port),local_only:new URL(service.publicUrl).hostname==='localhost',outstation_ready:service.publicUrl.startsWith('https://')}));
   route('get', '/api/formats', () => ({ companies: formats.companies, types: formats.types, details: formats.details }));
   route('get', '/api/customers', (s, r) => s.customers(String(r.query.q || '')));
-  route('post', '/api/customers', (s, r) => s.createCustomer(r.body, r.user.id), true);
+  route('post', '/api/customers', (s, r) => s.createManualCustomer(r.body, r.user.id), true);
   route('put', '/api/customers/:id', (s, r) => s.updateCustomer(r.params.id, r.body, r.user.id), true);
   route('get', '/api/products', (s, r) => s.products(String(r.query.q || ''), Number(r.query.page || 0)));
   route('get', '/api/products/:id', (s, r) => s.product(r.params.id));
@@ -122,37 +122,42 @@ async function apiApp(pool, config) {
   route('delete','/api/jobs/:id',(s,r)=>s.deleteJob(r.params.id,r.user),true);
   app.get('/api/jobs/:id/pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobPdf(req.params.id), 'stamping.pdf')));
   app.get('/api/templates/:company/:type', asyncCall(async (req, res) => fileResponse(res, await pdf.template(req.params.company, req.params.type), 'template.pdf')));
-  const admin = (req, res, next) => { check(req.user.role === 'ADMIN', '此功能需要管理员权限', 403); next(); };
+  const admin = (req, res, next) => { check(req.user.role === 'ADMIN', 'Administrator access is required.', 403); next(); };
   app.use(['/api/admin', '/api/import'], admin);
-  app.put('/api/admin/network',asyncCall(async(req,res)=>{const next=configModule.validate({...config,publicUrl:text(req.body,'public_url',300)});check(next.publicUrl.startsWith('https://'),'外勤网站地址必须使用 HTTPS');await service.q("INSERT INTO app_settings(setting_key,setting_value) VALUES('public_url',?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)",[next.publicUrl]);config.publicUrl=next.publicUrl;service.publicUrl=next.publicUrl;res.json({success:true,phone_url:service.publicUrl});}));
+  app.put('/api/admin/network',asyncCall(async(req,res)=>{const next=configModule.validate({...config,publicUrl:text(req.body,'public_url',300)});check(next.publicUrl.startsWith('https://'),'Remote access URL must use HTTPS.');await service.q("INSERT INTO app_settings(setting_key,setting_value) VALUES('public_url',?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)",[next.publicUrl]);config.publicUrl=next.publicUrl;service.publicUrl=next.publicUrl;res.json({success:true,phone_url:service.publicUrl});}));
   const logoUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:2*1024*1024,files:1}}).single('file');
 
-  app.post('/api/admin/logo',logoUpload,asyncCall(async(req,res)=>{const bytes=req.file?.buffer;check(bytes,'请选择 PNG 或 JPG 图片');const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;check(png||jpg,'Logo 只支持 PNG 或 JPG');await service.q('INSERT INTO app_branding(id,mime,image) VALUES(1,?,?) ON DUPLICATE KEY UPDATE mime=VALUES(mime),image=VALUES(image)',[png?'image/png':'image/jpeg',bytes]);res.json({success:true});}));
+  app.post('/api/admin/logo',logoUpload,asyncCall(async(req,res)=>{const bytes=req.file?.buffer;check(bytes,'Choose a PNG or JPG image.');const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;check(png||jpg,'Logo must be a PNG or JPG image.');await service.q('INSERT INTO app_branding(id,mime,image) VALUES(1,?,?) ON DUPLICATE KEY UPDATE mime=VALUES(mime),image=VALUES(image)',[png?'image/png':'image/jpeg',bytes]);res.json({success:true});}));
   route('get', '/api/admin/users', s => s.users());
   route('post', '/api/admin/users', (s, r) => s.saveUser(null, r.body, r.user.id), true);
   route('put', '/api/admin/users/:id', (s, r) => s.saveUser(r.params.id, r.body, r.user.id), true);
+  const batches=require('./import-batches');
+  route('get','/api/import/batches',s=>batches.list(s),true);
+  route('delete','/api/import/batches/:hash',(s,r)=>batches.clear(s,r.params.hash,r.user.id),true);
+  route('delete','/api/import/batches',(s,r)=>batches.clear(s,null,r.user.id),true);
+  app.get('/api/import/master.xlsx',asyncCall(async(req,res)=>{const bytes=await service.transaction(s=>batches.master(s));res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').attachment('JX-Master-Records.xlsx').send(bytes);}));
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: importLimits.maxFileBytes, files: 1, fields: 3 } }).single('file');
-  app.post('/api/import/preview', upload, asyncCall(async (req, res) => { check(req.file, '请选择 Excel 文件'); res.json((await imports.parse(req.file.buffer)).summary); }));
-  app.post('/api/import/commit', upload, asyncCall(async (req, res) => { check(req.file, '请选择 Excel 文件'); res.json(await service.transaction(s => imports.commit(s, req.file.buffer, text(req.body, 'company', 4), req.user.id, {repairMissing:req.body.repair_missing==='true'}))); }));
-  staticFiles(app); app.use((req, res) => res.status(404).json({ error: '找不到页面或接口' })); app.use(errorHandler);
+  app.post('/api/import/preview', upload, asyncCall(async (req, res) => { check(req.file, 'Choose an Excel file.'); res.json((await imports.parse(req.file.buffer)).summary); }));
+  app.post('/api/import/commit', upload, asyncCall(async (req, res) => { check(req.file, 'Choose an Excel file.'); res.json(await service.transaction(s => imports.commit(s, req.file.buffer, text(req.body, 'company', 4), req.user.id, {repairMissing:req.body.repair_missing==='true',filename:req.file.originalname}))); }));
+  staticFiles(app); app.use((req, res) => res.status(404).json({ error: 'Page or endpoint not found.' })); app.use(errorHandler);
   app.locals.pool = pool; return app;
 }
 async function setupApp(config) {
-  check(!config.production, '正式部署请先配置环境变量，不开放首次设置网页');
+  check(!config.production, 'Configure environment variables for production. Browser setup is not available.');
   const app = express(), active = express(); let configured = false, busy = false;
   harden(app, config); app.locals.setupToken = crypto.randomBytes(32).toString('hex');
   app.use((req, res, next) => configured ? active(req, res, next) : next());
   app.get(['/api/setup', '/api/auth'], (req, res) => res.json({ needs_setup: true, authenticated: false }));
   app.post('/api/setup', asyncCall(async (req, res) => {
-    check(['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress), '首次设置只能在服务器本机操作', 403);
-    check(['localhost', '127.0.0.1'].includes(req.hostname), '请从本机 localhost 打开设置', 403);
-    check(!req.get('origin') || req.get('origin') === `http://${req.get('host')}`, '设置来源不正确', 403);
-    check(equal(req.get('x-setup-token'), app.locals.setupToken), '请用启动窗口显示的设置链接重新打开', 403);
-    check(!busy, '设置正在保存，请稍候', 409); busy = true;
+    check(['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress), 'Initial setup is only available on the server computer.', 403);
+    check(['localhost', '127.0.0.1'].includes(req.hostname), 'Open setup from localhost on the server computer.', 403);
+    check(!req.get('origin') || req.get('origin') === `http://${req.get('host')}`, 'Invalid setup origin.', 403);
+    check(equal(req.get('x-setup-token'), app.locals.setupToken), 'Open the setup link shown in the startup window.', 403);
+    check(!busy, 'Settings are being saved. Please wait.', 409); busy = true;
     let pool;
     try {
       const next = configModule.validate({ ...config, configured: true, dbHost: text(req.body, 'db_host', 255) || 'localhost', dbPort: Number(req.body.db_port || 3306), dbUser: text(req.body, 'db_user', 100) || 'root', dbPassword: req.body.db_password || '', dbName: text(req.body, 'db_name', 64) || 'jx_stamping_db', sessionSecret: crypto.randomBytes(48).toString('hex'), adminUsername: text(req.body, 'admin_username', 80) || 'admin', adminPassword: req.body.admin_password || '' });
-      check(typeof next.dbPassword === 'string' && next.dbPassword.length <= 1000 && typeof next.adminPassword === 'string', '密码格式不正确');
+      check(typeof next.dbPassword === 'string' && next.dbPassword.length <= 1000 && typeof next.adminPassword === 'string', 'Invalid password format.');
       pool = await database.connect(next, true);
       const api = await apiApp(pool, next);
       const values = { DB_HOST: next.dbHost, DB_PORT: String(next.dbPort), DB_USER: next.dbUser, DB_PASSWORD: next.dbPassword, DB_NAME: next.dbName, PORT: String(next.port), PUBLIC_BASE_URL: next.publicUrl, SESSION_SECRET: next.sessionSecret };
@@ -162,11 +167,11 @@ async function setupApp(config) {
       res.json({ success: true });
     } catch (error) {
       if (pool) await pool.end();
-      if (['ER_ACCESS_DENIED_ERROR', 'ECONNREFUSED', 'ENOTFOUND', 'ER_DBACCESS_DENIED_ERROR'].includes(error.code)) throw new HttpError(400, '无法连接 MySQL。请确认 MySQL 已启动，以及地址、端口、用户名和密码正确。');
+      if (['ER_ACCESS_DENIED_ERROR', 'ECONNREFUSED', 'ENOTFOUND', 'ER_DBACCESS_DENIED_ERROR'].includes(error.code)) throw new HttpError(400, 'Cannot connect to MySQL. Check that it is running and verify the host, port and credentials.');
       throw error;
     } finally { busy = false; }
   }));
-  staticFiles(app); app.use((req, res) => res.status(503).json({ error: '请先完成本机首次设置' })); app.use(errorHandler); return app;
+  staticFiles(app); app.use((req, res) => res.status(503).json({ error: 'Complete local setup first.' })); app.use(errorHandler); return app;
 }
 async function createApp(config, pool) {
   if (!config.configured && !pool) return setupApp(config);

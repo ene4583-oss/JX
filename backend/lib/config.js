@@ -6,13 +6,13 @@ const { check } = require('./util');
 const envFile = path.join(__dirname, '../.env');
 dotenv.config({ path: envFile, quiet: true });
 function validate(config) {
-  check(Number.isInteger(config.port) && config.port > 0 && config.port < 65536, 'PORT 不正确');
-  check(Number.isInteger(config.dbPort) && config.dbPort > 0 && config.dbPort < 65536, 'MySQL 端口不正确');
-  check(config.sessionSecret.length >= 32, 'SESSION_SECRET 至少需要 32 位随机字符');
+  check(Number.isInteger(config.port) && config.port > 0 && config.port < 65536, 'Invalid PORT.');
+  check(Number.isInteger(config.dbPort) && config.dbPort > 0 && config.dbPort < 65536, 'Invalid MySQL port.');
+  check(config.sessionSecret.length >= 32, 'SESSION_SECRET requires at least 32 random characters.');
   const url = new URL(config.publicUrl);
-  check(!url.username && !url.password && !url.search && !url.hash && url.pathname === '/' && (url.protocol === 'https:' || url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)), '网站地址须为 HTTPS 根域名，本机测试可用 localhost');
+  check(!url.username && !url.password && !url.search && !url.hash && url.pathname === '/' && (url.protocol === 'https:' || url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)), 'Use an HTTPS root URL. Local testing may use localhost.');
   config.publicUrl = url.origin;
-  check(!config.production || config.secureCookie && url.protocol === 'https:', '正式部署必须使用 HTTPS，设置 COOKIE_SECURE=true');
+  check(!config.production || config.secureCookie && url.protocol === 'https:', 'Production requires HTTPS and COOKIE_SECURE=true.');
   return config;
 }
 function load() {

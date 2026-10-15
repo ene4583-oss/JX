@@ -33,8 +33,8 @@ function drawText(page, font, supported, field, value, rect, lineHeight) {
   let lines = wrap(font, value, size, width - 2);
   const occupied=()=>lineHeight?(lines.length-1)*lineHeight+size:lines.length*size*1.18;
   while (size > 5 && occupied() > height) { size -= .25; lines = wrap(font, value, size, width - 2); }
-  check(occupied() <= height, `${field} 内容过长，无法放入原表格，请缩短后重试。`);
-  check([...value.replace(/\n/g, '')].every(char => supported.has(char.codePointAt(0))), '资料包含 PDF 字体不支持的字符，请检查文字。');
+  check(occupied() <= height, `${field} is too long for the form. Shorten it and retry.`);
+  check([...value.replace(/\n/g, '')].every(char => supported.has(char.codePointAt(0))), 'Some characters are not supported by the PDF font. Check the text.');
   lines.forEach((line, index) => {
     const y=page.getHeight()-top-size-index*(lineHeight||size*1.18);
     page.drawRectangle({x:x+1,y:y-1,width:Math.min(width-2,font.widthOfTextAtSize(line,size)+1),height:size+1,color:rgb(1,1,1)});
@@ -42,7 +42,7 @@ function drawText(page, font, supported, field, value, rect, lineHeight) {
   });
 }
 async function template(company, type) {
-  check(formats.valid(company, type), '表格类型不正确');
+  check(formats.valid(company, type), 'Invalid form type.');
   const files = await assets();
   const source = await PDFDocument.load(files[company === 'DE' ? 1 : 2]);
   const output = await PDFDocument.create();
@@ -57,7 +57,7 @@ async function generate(snapshot) {
   const supported = new Set(font.getCharacterSet());
   const sources = { DE: await PDFDocument.load(deBytes), MCM: await PDFDocument.load(mcmBytes) };
   for (const product of snapshot.products) {
-    check(formats.valid(product.company, product.product_type), '产品表格类型待确认');
+    check(formats.valid(product.company, product.product_type), 'Product form type needs confirmation.');
     const [page] = await output.copyPages(sources[product.company], [formats.types.indexOf(product.product_type)]);
     output.addPage(page);
     const d = product.details;
@@ -106,7 +106,7 @@ async function generateList(snapshot) {
     const fee=entry.stamping_fee||'', cents=fee?Math.round(Number(fee)*100):0;
     const values=[String(index+1),p.name,[p.address,p.area].filter(Boolean).join('\n'),p.brand,['B','BARU'].includes(String(d.condition||'').toUpperCase())?'B':['L','LAMA'].includes(String(d.condition||'').toUpperCase())?'L':'',p.model,p.serial_no,d.capacity,p.product_type,d.old_reg,d.new_reg,entry.sticker_no||'',fee? (cents/100).toFixed(2):''];
     const height=Math.max(26,...values.map((value,i)=>wrap(font,String(value||''),8,edges[i+1]-edges[i]-6).length*9.5+8));
-    check(height<=420,'客户资料太长，无法放入清单，请缩短后重试。');
+    check(height<=420,'Customer details are too long for the list. Shorten them and retry.');
     if(top+height>550){total('SUBTOTAL',pageTotal);newPage();}
     line(top);for(const x of edges)page.drawLine({start:{x,y:612-top},end:{x,y:612-top-height},thickness:.6});
     values.forEach((value,i)=>{if(value)drawText(page,font,supported,'list',String(value),[edges[i]+2,top+3,edges[i+1]-edges[i]-4,height-5]);});

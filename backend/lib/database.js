@@ -33,13 +33,13 @@ async function importUsers(pool, config) {
   const [users] = await pool.query('SELECT COUNT(*) AS count FROM app_users');
   if (!users[0].count) {
     const username = config.adminUsername || 'admin', password = config.adminPassword || '';
-    check(/^[A-Za-z0-9_.@-]{3,80}$/.test(username), '管理员用户名须为 3–80 位英文字母、数字或 _.@-');
-    check(password.length >= 8 && Buffer.byteLength(password) <= 72, '数据库没有账号，请填写至少 8 位的首次管理员密码');
+    check(/^[A-Za-z0-9_.@-]{3,80}$/.test(username), 'Administrator username must contain 3–80 letters, numbers or _.@-');
+    check(password.length >= 8 && Buffer.byteLength(password) <= 72, 'No account exists. Enter an initial administrator password with at least 8 characters.');
     await pool.query("INSERT INTO app_users(id,username,password_hash,role) VALUES (?,?,?,'ADMIN')", [id(), username, '{bcrypt}' + await bcrypt.hash(password, 12)]);
   }
 }
 async function connect(config, create = false) {
-  check(/^[A-Za-z0-9_]{1,64}$/.test(config.dbName), '数据库名称只允许英文字母、数字和下划线');
+  check(/^[A-Za-z0-9_]{1,64}$/.test(config.dbName), 'Database name may contain only letters, numbers and underscores.');
   if (create) {
     const conn = await mysql.createConnection(options(config, false));
     try { await conn.query('CREATE DATABASE IF NOT EXISTS ?? CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci', [config.dbName]); } finally { await conn.end(); }

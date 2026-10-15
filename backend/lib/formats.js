@@ -2,14 +2,14 @@
 const companies = ['DE', 'MCM'];
 const types = ['ATN', 'ATS', 'ATP', 'ATE', 'SLL', 'SLC', 'ATL', 'BTU', 'ATP (M)'];
 const details = {
-  shop_out:'Shop/Out', stamping_fee:'默认 Stamping Fee（只用于 List Format）', capacity: '容量 / Had Terima', manufacturer: '制造商 / Nama Pembuat', interval: '分度值 / Senggatan e',
-  new_reg: '新注册号', old_reg: '旧注册号', last_reg: '上次验证号码（留空沿用新注册号）',
-  last_date: '上次验证日期', last_branch: '上次验证分行', condition: 'Baru/Lama',
-  usage: '用途 / Perdagangan 或 Bukan Perdagangan', instrument_kind: '仪器种类', tray: '秤盘 / Mangkuk 或 Rata',
-  indicator: '显示 / Digital 或 Dail', material: '材料', shape: '形状', steelyard_capacity: 'Steelyard 容量',
-  counterpoise_count: '砝码数量', counterpoise_weights: '砝码重量（每行一项）', notes: '内部备注（不打印）'
+  shop_out:'Shop/Out', stamping_fee:'Default Stamping Fee (List Format only)', capacity: 'Capacity', manufacturer: 'Manufacturer', interval: 'Interval',
+  new_reg: 'New registration', old_reg: 'Old registration', last_reg: 'Last verification number (blank uses new registration)',
+  last_date: 'Last verification date', last_branch: 'Last verification branch', condition: 'Condition (B/L)',
+  usage: 'Usage', instrument_kind: 'Instrument type', tray: 'Tray type',
+  indicator: 'Indicator', material: 'Material', shape: 'Shape', steelyard_capacity: 'Steelyard capacity',
+  counterpoise_count: 'Counterpoise count', counterpoise_weights: 'Counterpoise weights (one per line)', notes: 'Internal notes (not printed)'
 };
-for (let i = 1; i <= 8; i++) details['check_' + i] = '检验项目 ' + i + ' / Ya、Tidak 或留空';
+for (let i = 1; i <= 8; i++) details['check_' + i] = 'Inspection item ' + i + ' / Yes, No or blank';
 function normalize(value) {
   const type = String(value ?? '').trim().toUpperCase();
   return type === 'SIC' ? 'SLC' : ['ATP_M', 'ATP(M)'].includes(type) ? 'ATP (M)' : type;

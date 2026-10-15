@@ -12,4 +12,5 @@ async function records(records){
  sheet.columns.forEach((column,i)=>column.width=i===2?45:i===1?30:19);
  return Buffer.from(await book.xlsx.writeBuffer());
 }
-module.exports={records};
+async function rawRows(rows){const book=new Excel.Workbook(),sheet=book.addWorksheet('Master Records');sheet.addRow(headers);sheet.getRow(1).font={bold:true};sheet.views=[{state:'frozen',ySplit:1}];sheet.autoFilter={from:'A1',to:'R1'};for(const row of rows){sheet.addRow(headers.map(key=>['Stamping Fee','Total Price'].includes(key)&&/^\d+(?:\.\d{1,2})?$/.test(String(row[key]??''))?Number(row[key]):String(row[key]??'')));for(const col of [14,17])sheet.lastRow.getCell(col).numFmt='0.00';}sheet.columns.forEach((c,i)=>c.width=i===2?45:i===1?30:19);return Buffer.from(await book.xlsx.writeBuffer());}
+module.exports={records,rawRows};
