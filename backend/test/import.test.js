@@ -24,3 +24,8 @@ test('invalid and oversized Excel containers are rejected', async () => {
   await assert.rejects(parse(Buffer.alloc(11 * 1024 * 1024)), /10MB/);
 });
 module.exports = { fixture };
+
+test('Excel header aliases preserve area, model, condition, fee and phone number',async()=>{
+ const book=new Excel.Workbook(),sheet=book.addWorksheet('Records');sheet.addRow(['Name','Address','Type','Brand','S/No',' area ','baru / lama','MODEL','Stamping Fee','Phone number']);sheet.addRow(['Client','Road','ATS','TEST','00001','RAUB','B','MODEL 123',8.5,'0123456789']);
+ const {rows,summary}=await parse(Buffer.from(await book.xlsx.writeBuffer()));assert.equal(rows[0].Area,'RAUB');assert.equal(rows[0].Model,'MODEL 123');assert.equal(rows[0]['Baru/Lama'],'B');assert.equal(rows[0]['Stamping Fee'],'8.5');assert.equal(rows[0]['Phone No.'],'0123456789');assert.ok(summary.imported_columns.includes('Phone No.'));
+});

@@ -18,7 +18,7 @@ function validate(config) {
 function load() {
   const production = process.env.NODE_ENV === 'production';
   return { configured: fs.existsSync(envFile) || !!process.env.DB_HOST || !!process.env.DB_NAME,
-    envFile, production, port: Number(process.env.PORT || 3000), host: process.env.HOST || (production ? '0.0.0.0' : '127.0.0.1'),
+    envFile, production, port: Number(process.env.PORT || 3000), host: process.env.HOST || '0.0.0.0',
     publicUrl: process.env.PUBLIC_BASE_URL || 'http://localhost:' + (process.env.PORT || 3000),
     dbHost: process.env.DB_HOST || 'localhost', dbPort: Number(process.env.DB_PORT || 3306), dbUser: process.env.DB_USER || 'root', dbPassword: process.env.DB_PASSWORD || '', dbName: process.env.DB_NAME || 'jx_stamping_db',
     dbSsl: process.env.DB_SSL === 'true', dbCa: process.env.DB_SSL_CA || '',

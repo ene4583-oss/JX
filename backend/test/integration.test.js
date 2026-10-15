@@ -49,7 +49,7 @@ test('MySQL: authenticated employee workflow, persistent sessions, import and se
   assert.equal((await employee.request('/api/products', 'POST', {}, true)).status, 403);
   const input = { customer: { name: 'Node Test ' + crypto.randomUUID(), address: '123 Test Road' }, company: 'DE', product_type: 'ATS', brand: 'TEST', model: 'X', serial_no: crypto.randomUUID(), details: { capacity: '30kg', new_reg: 'CRA12345' } };
   const created = await employee.request('/api/products', 'POST', input); assert.equal(created.status, 200); const product = created.data;
-  const label = await employee.request('/api/products/' + product.id + '/qr'); assert.equal(label.data.link, cfg.publicUrl + '/#product=' + product.id); assert.match(label.data.image, /^data:image\/png;base64,/);
+  const label = await employee.request('/api/products/' + product.id + '/qr'); assert.equal(label.data.link, require('../lib/network').phoneUrl(cfg) + '/#product=' + product.id); assert.match(label.data.image, /^data:image\/png;base64,/);
   assert.equal((await employee.request('/api/products/' + product.id, 'PUT', { ...product, model: 'Updated' })).status, 200);
   assert.equal((await employee.request('/api/products/' + product.id, 'PUT', product)).status, 409);
   assert.equal((await employee.request('/api/products/' + product.id + '/qr')).data.link, label.data.link);
@@ -147,4 +147,15 @@ test('MySQL: Excel export, list fees and saved-form corrections/deletion preserv
   const afterBook=new Excel.Workbook();await afterBook.xlsx.load((await owner.request('/api/jobs/'+jobId+'/export.xlsx')).data);assert.equal(afterBook.worksheets[0].getCell('B2').text,'Corrected customer');
   assert.equal((await owner.request('/api/products/'+p.id)).data.name,'Original customer');assert.equal((await owner.request('/api/jobs/'+jobId+'/list.pdf')).status,200);
   assert.equal((await owner.request('/api/jobs/'+jobId,'DELETE',undefined,true)).status,403);assert.equal((await owner.request('/api/jobs/'+jobId,'DELETE')).status,200);assert.equal((await owner.request('/api/jobs/'+jobId+'/pdf')).status,404);assert.equal((await owner.request('/api/products/'+p.id)).status,200);
+});
+
+test('MySQL: repairing an older Excel import restores the requested columns without duplicate products or history', {skip:!enabled},async t=>{
+ const cfg=config();assert.match(cfg.dbName,/_test$/);const pool=await connect(cfg);t.after(()=>pool.end());const service=new Service(pool,cfg.publicUrl),actor=(await service.q("SELECT id FROM app_users WHERE role='ADMIN' LIMIT 1"))[0].id;
+ const suffix=crypto.randomUUID(),bytes=await workbook([{Name:'Repair '+suffix,Address:'Road',Area:'RAUB',Type:'ATS',Brand:'TEST',Model:'MODEL123','S/No':suffix,'Baru/Lama':'B','Stamping Fee':'8.50','Phone No.':'0123456789'},{Name:'No serial '+suffix,Address:'Road',Area:'KL',Type:'ATP',Brand:'TEST',Model:'MODEL456','Baru/Lama':'Lama','Stamping Fee':'0.00','Phone No.':'0198765432'}]);
+ const imports=require('../lib/import'),fileHash=hash(bytes.toString('base64'));let result=await service.transaction(s=>imports.commit(s,bytes,'AUTO',actor));assert.equal(result.created_products,2);
+ const products=await service.q('SELECT p.id,p.customer_id,p.model,p.details FROM app_products p JOIN app_customers c ON c.id=p.customer_id WHERE c.name LIKE ?',['%'+suffix]);const count=(await service.q('SELECT COUNT(*) AS count FROM app_products'))[0].count;
+ for(const p of products){const d=JSON.parse(typeof p.details==='string'?p.details:JSON.stringify(p.details));delete d.stamping_fee;d.condition='';await service.q('UPDATE app_products SET model=?,details=? WHERE id=?',['',JSON.stringify(d),p.id]);await service.q('UPDATE app_customers SET area=?,phone=? WHERE id=?',['','',p.customer_id]);}
+ result.mapping_version=1;await service.q('UPDATE app_imports SET result=? WHERE file_hash=?',[JSON.stringify(result),fileHash]);
+ result=await service.transaction(s=>imports.commit(s,bytes,'AUTO',actor));assert.equal(result.repaired_import,true);assert.equal(result.created_products,0);assert.equal(result.history_rows,0);assert.equal((await service.q('SELECT COUNT(*) AS count FROM app_products'))[0].count,count);
+ const first=await service.product(products.find(p=>p.model==='MODEL123').id);assert.equal(first.area,'RAUB');assert.equal(first.phone,'0123456789');assert.equal(first.model,'MODEL123');assert.equal(first.details.condition,'Baru');assert.equal(first.details.stamping_fee,'8.50');assert.equal((await service.transaction(s=>imports.commit(s,bytes,'AUTO',actor))).already_imported,true);
 });

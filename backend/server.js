@@ -9,6 +9,7 @@ async function main() {
     console.log('\nJian Xu 网站已启动。请保持这个窗口开启。');
     console.log(app.locals.setupToken ? '首次设置，请在本机浏览器打开：' : '本机网站地址：');
     console.log(url);
+    if(!app.locals.setupToken){console.log('Phone / same Wi-Fi:');console.log(require('./lib/network').phoneUrl(config));console.log('If the phone cannot open this address, allow Node.js on Private networks in Windows Firewall.');}
     if (process.argv.includes('--open')) {
       const { spawn } = require('node:child_process');
       const command = process.platform === 'win32' ? 'cmd.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';

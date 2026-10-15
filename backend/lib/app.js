@@ -14,6 +14,7 @@ const MysqlStore = require('./session-store');
 const { check, hash, text, equal, HttpError } = require('./util');
 const formats = require('./formats');
 const pdf = require('./pdf');
+const network = require('./network');
 const imports = require('./import');
 const frontend = path.join(__dirname, '../../frontend');
 const asyncCall = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -40,7 +41,9 @@ function staticFiles(app) {
   for (const file of ['setup.html', 'setup.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
 }
 async function apiApp(pool, config) {
-  const app = express(), service = new Service(pool, config.publicUrl);
+  const savedNetwork=(await pool.query("SELECT setting_value FROM app_settings WHERE setting_key='public_url'"))[0];
+  if(!config.production&&savedNetwork.length)configModule.validate({...config,publicUrl:savedNetwork[0].setting_value})&&(config.publicUrl=savedNetwork[0].setting_value);
+  const app = express(), service = new Service(pool, network.phoneUrl(config));
   harden(app, config);
   app.use(session({ name: 'jx.sid', secret: config.sessionSecret, store: new MysqlStore(pool), resave: false, saveUninitialized: false,
     cookie: { httpOnly: true, secure: !!config.secureCookie, sameSite: 'lax', maxAge: 12 * 60 * 60 * 1000 } }));
@@ -60,7 +63,7 @@ async function apiApp(pool, config) {
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
-      check(!origin || origin === config.publicUrl, '访问来源不正确', 403);
+      check(network.allowedOrigin(config,origin), '访问来源不正确', 403);
       check(equal(req.get('x-csrf-token'), req.session.csrf), '登录验证过期，请刷新页面后重试', 403);
     }
     next();
@@ -87,6 +90,7 @@ async function apiApp(pool, config) {
   app.post('/api/logout', asyncCall(async (req, res) => { await new Promise((resolve, reject) => req.session.destroy(error => error ? reject(error) : resolve())); res.clearCookie('jx.sid', { httpOnly: true, secure: !!config.secureCookie, sameSite: 'lax' }); res.json({ success: true }); }));
   const route = (method, url, fn, transaction = false) => app[method](url, asyncCall(async (req, res) => res.json(await (transaction ? service.transaction(s => fn(s, req)) : fn(service, req)))));
   const fileResponse = (res, bytes, name) => res.type('pdf').set('Content-Disposition', `inline; filename="${name}"`).set('Cache-Control', 'no-store').send(bytes);
+  route('get', '/api/network',()=>({phone_url:service.publicUrl,addresses:network.lanUrls(config.port),local_only:new URL(service.publicUrl).hostname==='localhost',outstation_ready:service.publicUrl.startsWith('https://')}));
   route('get', '/api/formats', () => ({ companies: formats.companies, types: formats.types, details: formats.details }));
   route('get', '/api/customers', (s, r) => s.customers(String(r.query.q || '')));
   route('post', '/api/customers', (s, r) => s.createCustomer(r.body, r.user.id), true);
@@ -119,6 +123,7 @@ async function apiApp(pool, config) {
   app.get('/api/templates/:company/:type', asyncCall(async (req, res) => fileResponse(res, await pdf.template(req.params.company, req.params.type), 'template.pdf')));
   const admin = (req, res, next) => { check(req.user.role === 'ADMIN', '此功能需要管理员权限', 403); next(); };
   app.use(['/api/admin', '/api/import'], admin);
+  app.put('/api/admin/network',asyncCall(async(req,res)=>{const next=configModule.validate({...config,publicUrl:text(req.body,'public_url',300)});check(next.publicUrl.startsWith('https://'),'外勤网站地址必须使用 HTTPS');await service.q("INSERT INTO app_settings(setting_key,setting_value) VALUES('public_url',?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)",[next.publicUrl]);config.publicUrl=next.publicUrl;service.publicUrl=next.publicUrl;res.json({success:true,phone_url:service.publicUrl});}));
   const logoUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:2*1024*1024,files:1}}).single('file');
 
   app.post('/api/admin/logo',logoUpload,asyncCall(async(req,res)=>{const bytes=req.file?.buffer;check(bytes,'请选择 PNG 或 JPG 图片');const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;check(png||jpg,'Logo 只支持 PNG 或 JPG');await service.q('INSERT INTO app_branding(id,mime,image) VALUES(1,?,?) ON DUPLICATE KEY UPDATE mime=VALUES(mime),image=VALUES(image)',[png?'image/png':'image/jpeg',bytes]);res.json({success:true});}));

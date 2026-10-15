@@ -59,3 +59,7 @@ CREATE TABLE IF NOT EXISTS app_http_sessions (
 CREATE TABLE IF NOT EXISTS app_branding (
  id TINYINT PRIMARY KEY, mime VARCHAR(30) NOT NULL, image MEDIUMBLOB NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS app_settings (
+ setting_key VARCHAR(80) PRIMARY KEY, setting_value TEXT NOT NULL
+);
