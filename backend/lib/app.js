@@ -60,7 +60,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.5', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.6', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -94,6 +94,10 @@ async function apiApp(pool, config) {
   route('get', '/api/network',()=>({phone_url:service.publicUrl,addresses:network.lanUrls(config.port),local_only:new URL(service.publicUrl).hostname==='localhost',outstation_ready:service.publicUrl.startsWith('https://')}));
   route('get', '/api/formats', () => ({ companies: formats.companies, types: formats.types, details: formats.details }));
   route('get', '/api/customers', (s, r) => s.customers(String(r.query.q || '')));
+  route('get','/api/customers/deleted',(s,r)=>s.deletedCustomers(String(r.query.q||''),r.user));
+  route('get','/api/customers/:id/deletion-info',(s,r)=>s.customerDeletionInfo(r.params.id,r.user));
+  route('delete','/api/customers/:id',(s,r)=>s.deleteCustomer(r.params.id,r.body,r.user),true);
+  route('post','/api/customers/:id/restore',(s,r)=>s.restoreCustomer(r.params.id,r.user),true);
   route('get', '/api/customers/:id', (s, r) => s.customer(r.params.id));
   route('post', '/api/customers', (s, r) => s.createManualCustomer(r.body, r.user.id), true);
   route('put', '/api/customers/:id', (s, r) => s.updateCustomer(r.params.id, r.body, r.user.id), true);

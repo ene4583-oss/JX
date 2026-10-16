@@ -82,3 +82,9 @@ CREATE TABLE IF NOT EXISTS app_import_customers (
 CREATE TABLE IF NOT EXISTS app_manual_customers (
  customer_id VARCHAR(36) PRIMARY KEY, FOREIGN KEY(customer_id) REFERENCES app_customers(id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_deleted_customers (
+ customer_id VARCHAR(36) PRIMARY KEY,
+ deleted_by VARCHAR(36) NOT NULL,
+ deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(customer_id) REFERENCES app_customers(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

@@ -4,7 +4,7 @@ const QRCode = require('qrcode');
 const { check, text, id, hash, normalized, decode, date, HttpError } = require('./util');
 const formats = require('./formats');
 const pdf = require('./pdf');
-const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone FROM app_products p JOIN app_customers c ON c.id=p.customer_id ';
+const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) ';
 class Service {
   constructor(db, publicUrl) { this.db = db; this.publicUrl = publicUrl; }
   async q(sql, args = []) { return (await this.db.query(sql, args))[0]; }
@@ -20,25 +20,51 @@ class Service {
     check(name, 'Enter the customer name.');
     const identity = hash(normalized(name) + '\n' + normalized(address));
     const existing = await this.q('SELECT * FROM app_customers WHERE identity_hash=?', [identity]);
-    if (existing.length) return existing[0];
+    if (existing.length) {const deleted=await this.q('SELECT customer_id FROM app_deleted_customers WHERE customer_id=?',[existing[0].id]);check(!deleted.length,'This customer was deleted. An administrator can restore it from Deleted customers.',409);return existing[0];}
     const customerId = id();
     await this.q('INSERT INTO app_customers(id,identity_hash,name,address,area,phone,created_by) VALUES (?,?,?,?,?,?,?)', [customerId, identity, name, address, text(input, 'area', 150), text(input, 'phone', 80), user]);
     await this.audit(user, 'customer.create', customerId);
     return {...await this.one('SELECT * FROM app_customers WHERE id=?', [customerId]),newly_created:true};
   }
   async createManualCustomer(input,user){const customer=await this.createCustomer(input,user);await this.q('INSERT IGNORE INTO app_manual_customers(customer_id) VALUES (?)',[customer.id]);return customer;}
-  async customer(customerId) { return this.one('SELECT * FROM app_customers WHERE id=?', [customerId]); }
+  async customer(customerId) { return this.one('SELECT * FROM app_customers WHERE id=? AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id)', [customerId]); }
   async customers(q) {
     check(q.length <= 100, 'Search text is too long.');
-    return this.q('SELECT * FROM app_customers WHERE name LIKE ? OR phone LIKE ? OR address LIKE ? ORDER BY updated_at DESC LIMIT 100', [`%${q}%`, `%${q}%`, `%${q}%`]);
+    return this.q('SELECT * FROM app_customers WHERE NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) AND (name LIKE ? OR phone LIKE ? OR address LIKE ?) ORDER BY updated_at DESC LIMIT 100', [`%${q}%`, `%${q}%`, `%${q}%`]);
   }
   async updateCustomer(customerId, input, user) {
     const name = text(input, 'name', 255), address = text(input, 'address', 2000);
     check(name, 'Enter the customer name.'); check(Number.isInteger(input.version), 'Reload the record.');
-    const result = await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=?', [hash(normalized(name) + '\n' + normalized(address)), name, address, text(input, 'area', 150), text(input, 'phone', 80), customerId, input.version]);
+    const result = await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=? AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id)', [hash(normalized(name) + '\n' + normalized(address)), name, address, text(input, 'area', 150), text(input, 'phone', 80), customerId, input.version]);
     check(result.affectedRows === 1, 'This customer changed. Reload it and try again.', 409);
     await this.audit(user, 'customer.update', customerId);
     return this.one('SELECT * FROM app_customers WHERE id=?', [customerId]);
+  }
+  async customerDeletionInfo(customerId,user){
+    check(user.role==='ADMIN','Administrator access is required.',403);
+    const c=await this.customer(customerId),count=await this.one('SELECT COUNT(*) AS products FROM app_products WHERE customer_id=?',[customerId]);
+    return {...c,products:Number(count.products)};
+  }
+  async deleteCustomer(customerId,input,user){
+    check(user.role==='ADMIN','Administrator access is required.',403);
+    const c=await this.one('SELECT * FROM app_customers WHERE id=? FOR UPDATE',[customerId]);
+    check(Number.isInteger(input?.version)&&c.version===input.version,'This customer changed. Reload it before deleting.',409);
+    const info=await this.customerDeletionInfo(customerId,user);
+    check(Number.isInteger(input?.products)&&input.products===info.products,'The linked products changed. Review the customer again before deleting.',409);
+    await this.q('INSERT INTO app_deleted_customers(customer_id,deleted_by) VALUES (?,?)',[customerId,user.id]);
+    await this.q('UPDATE app_customers SET version=version+1 WHERE id=?',[customerId]);
+    await this.audit(user.id,'customer.delete',customerId);
+    return {success:true,customer_id:customerId,products:info.products};
+  }
+  async deletedCustomers(q,user){
+    check(user.role==='ADMIN','Administrator access is required.',403);check(q.length<=100,'Search text is too long.');
+    return this.q('SELECT c.*,dc.deleted_at,(SELECT COUNT(*) FROM app_products p WHERE p.customer_id=c.id) AS products FROM app_customers c JOIN app_deleted_customers dc ON dc.customer_id=c.id WHERE c.name LIKE ? OR c.address LIKE ? OR c.phone LIKE ? ORDER BY dc.deleted_at DESC,c.id LIMIT 100',Array(3).fill('%'+q+'%'));
+  }
+  async restoreCustomer(customerId,user){
+    check(user.role==='ADMIN','Administrator access is required.',403);
+    await this.one('SELECT id FROM app_customers WHERE id=? FOR UPDATE',[customerId]);
+    const result=await this.q('DELETE FROM app_deleted_customers WHERE customer_id=?',[customerId]);check(result.affectedRows===1,'Deleted customer not found.',404);
+    await this.q('UPDATE app_customers SET version=version+1 WHERE id=?',[customerId]);await this.audit(user.id,'customer.restore',customerId);return this.customer(customerId);
   }
   hydrate(row) { return { ...row, details: decode(row.details), template_page: formats.types.indexOf(row.product_type) + 1 }; }
   async product(productId) { return this.hydrate(await this.one(productSql + 'WHERE p.id=?', [productId])); }
@@ -51,7 +77,7 @@ class Service {
   async products(q,page) {
     check(Number.isInteger(page)&&page>=0&&page<=100000,'Invalid search conditions.');
     const {filter,args}=this.productSearch(q);
-    const count = await this.one('SELECT COUNT(*) AS count FROM app_products p JOIN app_customers c ON c.id=p.customer_id ' + filter, args);
+    const count = await this.one('SELECT COUNT(*) AS count FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) ' + filter, args);
     const rows = await this.q(productSql + filter + ' ORDER BY p.updated_at DESC,p.id LIMIT 30 OFFSET ?', [...args, page * 30]);
     return { total: Number(count.count), page, items: rows.map(row => this.hydrate(row)) };
   }
@@ -70,11 +96,12 @@ class Service {
     return require('./qr-labels').generate(ids.map(id=>byId.get(id)),this.publicUrl);
   }
   async saveProduct(existing, input, user) {
+    if(existing)await this.product(existing);
     let customer = text(input, 'customer_id', 36);
     if (!customer) {
       check(input.customer && typeof input.customer === 'object' && !Array.isArray(input.customer), 'Select or enter a customer.');
       customer = (await this.createCustomer(input.customer, user)).id;
-    } else await this.one('SELECT id FROM app_customers WHERE id=?', [customer]);
+    } else await this.customer(customer);
     const company = text(input, 'company', 3), type = text(input, 'product_type', 20), brand = text(input, 'brand', 150), model = text(input, 'model', 150), serial = text(input, 'serial_no', 150);
     check(formats.valid(company, type), 'Choose DE / MCM and a valid product type.'); check(brand, 'Enter the brand.');
     const identity = serial ? hash([customer, normalized(brand), normalized(model), normalized(serial)].join('\n')) : null;
@@ -162,7 +189,7 @@ class Service {
   async preview(input) { return pdf.generate(await this.snapshot(input)); }
   async saveJob(input, user) {
     const requestId = text(input, 'request_id', 36); check(/^[0-9a-f-]{36}$/i.test(requestId), 'Refresh the page and retry.');
-    const existing = await this.q('SELECT id FROM app_jobs WHERE request_id=? AND created_by=?', [requestId, user]); if (existing.length) return existing[0];
+    const existing = await this.q('SELECT id FROM app_jobs WHERE request_id=? AND created_by=?', [requestId, user]); if (existing.length) {const deleted=await this.q('SELECT customer_id FROM app_deleted_customers WHERE customer_id=?',[existing[0].id]);check(!deleted.length,'This customer was deleted. An administrator can restore it from Deleted customers.',409);return existing[0];}
     const snapshot = await this.snapshot(input), bytes = await pdf.generate(snapshot), jobId = id();
     await this.q('INSERT INTO app_jobs(id,request_id,title,stamping_date,snapshot,pdf,created_by) VALUES (?,?,?,?,?,?,?)', [jobId, requestId, text(input, 'title', 200) || 'Stamping ' + snapshot.settings.stamping_date, snapshot.settings.stamping_date, JSON.stringify(snapshot), bytes, user]);
     for (const product of snapshot.products) await this.q('INSERT INTO app_job_items(job_id,product_id) VALUES (?,?)', [jobId, product.id]);

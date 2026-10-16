@@ -244,3 +244,30 @@ test('MySQL: cumulative saved workbook includes older forms, edits and deletions
   rows=await exported();assert.equal(rows.length,200);assert.equal((await c.request('/api/records/summary')).data.forms,baseline.forms+200);
   await service.q('DELETE FROM app_job_items WHERE job_id=?',[ids[0]]);
 });
+
+test('MySQL: deleting and restoring a customer hides linked products and preserves saved history', {skip:!enabled}, async t=>{
+ const cfg=config();assert.match(cfg.dbName,/_test$/);const pool=await connect(cfg);t.after(()=>pool.end());const {server,base}=await start(await createApp(cfg,pool));t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const admin=client(base),staff=client(base);await admin.login();const tag='Deleted-'+crypto.randomUUID(),username='del_'+crypto.randomUUID().slice(0,8);
+ await admin.request('/api/admin/users','POST',{username,password:'Test-only-password-2026',role:'EMPLOYEE'});await staff.login(username);
+ const p=(await admin.request('/api/products','POST',{customer:{name:tag,address:'Customer Delete Road'},company:'DE',product_type:'ATS',brand:'DELETE TEST',model:'M',serial_no:tag,details:{}})).data;
+ const job=(await admin.request('/api/jobs','POST',{product_ids:[p.id],company:'DE',stamping_date:'2026-10-16',request_id:crypto.randomUUID()})).data;
+ const label=(await admin.request('/api/products/'+p.id+'/qr')).data;
+ const info=(await admin.request('/api/customers/'+p.customer_id+'/deletion-info')).data;assert.equal(info.products,1);
+ assert.equal((await staff.request('/api/customers/'+p.customer_id,'DELETE',{version:info.version,products:1})).status,403);
+ assert.equal((await admin.request('/api/customers/'+p.customer_id,'DELETE',{version:info.version,products:1},true)).status,403);
+ assert.equal((await admin.request('/api/customers/'+p.customer_id,'DELETE',{version:info.version,products:2})).status,409);
+ assert.equal((await admin.request('/api/customers/'+p.customer_id,'DELETE',{version:info.version,products:1})).status,200);
+ assert.equal((await admin.request('/api/products?q='+encodeURIComponent(tag))).data.total,0);
+ assert.equal((await admin.request('/api/customers?q='+encodeURIComponent(tag))).data.length,0);
+ assert.equal((await admin.request('/api/products/'+p.id)).status,404);
+ assert.equal((await admin.request('/api/products/'+p.id+'/qr')).status,404);
+ assert.equal((await admin.request('/api/qr/labels.pdf','POST',{product_ids:[p.id]})).status,404);
+ assert.equal((await admin.request('/api/jobs/'+job.id)).data.snapshot.products[0].name,tag);
+ assert.equal((await admin.request('/api/jobs/'+job.id+'/pdf')).status,200);
+ const exported=(await admin.request('/api/records/export.xlsx')).data,book=new Excel.Workbook();await book.xlsx.load(exported);assert.ok(book.worksheets[0].getSheetValues().slice(2).some(row=>row[2]===tag));
+ const deleted=(await admin.request('/api/customers/deleted?q='+encodeURIComponent(tag))).data;assert.equal(deleted.length,1);assert.equal(deleted[0].id,p.customer_id);
+ assert.equal((await staff.request('/api/customers/deleted')).status,403);assert.equal((await staff.request('/api/customers/'+p.customer_id+'/restore','POST')).status,403);
+ assert.equal((await admin.request('/api/customers/'+p.customer_id+'/restore','POST')).status,200);
+ assert.equal((await admin.request('/api/products/'+p.id+'/qr')).data.link,label.link);
+ assert.equal((await admin.request('/api/products?q='+encodeURIComponent(tag))).data.total,1);
+});
