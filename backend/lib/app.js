@@ -61,7 +61,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.7', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.8', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
