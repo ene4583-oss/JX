@@ -32,7 +32,8 @@ npm run admin:password
 
 ## Products, customers and printing
 
-- **Products & Scan** uses a responsive table with add-to-queue, edit, QR and history actions on the left.
+- **Products & Scan** starts with no records. Search by old/new registration number, customer name, address, serial, brand or Model, or scan a QR. Results show Name, Full address, Registration No., Brand and Model with Details, QR / Reprint, Edit and Add to print queue actions. On phones, the same fields stack vertically. Open Details for the remaining fields and history.
+- Scanning displays the matching product for review. Choose **Add to print queue** explicitly; paired phones send the product to the computer at that point. Product Excel export is under **More tools**.
 - **Add product / customer** supports manual entry. Choose an existing customer or enter a new one. **Customers** also allows customer-only records.
 - Each product receives a permanent UUID and QR. Updates retain that UUID. Serial-number matching uses customer, brand, Model and serial; products without a serial cannot always be matched across different files.
 - **Print Queue** has company, date and printing controls above the rows. Select individual products or select all. Only selected rows are saved or printed.

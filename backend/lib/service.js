@@ -43,8 +43,8 @@ class Service {
   async product(productId) { return this.hydrate(await this.one(productSql + 'WHERE p.id=?', [productId])); }
   async products(q, page) {
     check(q.length <= 100 && Number.isInteger(page) && page >= 0 && page <= 100000, 'Invalid search conditions.');
-    const filter = "WHERE c.name LIKE ? OR p.serial_no LIKE ? OR p.brand LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.new_reg')) LIKE ?";
-    const args = Array(4).fill(`%${q}%`);
+    const filter = "WHERE c.name LIKE ? OR p.serial_no LIKE ? OR p.brand LIKE ? OR p.model LIKE ? OR c.address LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.new_reg')) LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.old_reg')) LIKE ?";
+    const args = Array(7).fill(`%${q}%`);
     const count = await this.one('SELECT COUNT(*) AS count FROM app_products p JOIN app_customers c ON c.id=p.customer_id ' + filter, args);
     const rows = await this.q(productSql + filter + ' ORDER BY p.updated_at DESC,p.id LIMIT 30 OFFSET ?', [...args, page * 30]);
     return { total: Number(count.count), page, items: rows.map(row => this.hydrate(row)) };
