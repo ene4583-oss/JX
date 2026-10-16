@@ -220,3 +220,27 @@ test('MySQL: one customer edit updates twenty linked products and preserves save
   assert.equal((await c.request('/api/jobs/' + job.id)).data.snapshot.products[0].address, 'Original address');
   assert.equal((await c.request('/api/customers?q=Updated%20address')).data.some(row => row.id === original.id), true);
 });
+
+test('MySQL: cumulative saved workbook includes older forms, edits and deletions', { skip: !enabled }, async t => {
+  const cfg = config(); assert.match(cfg.dbName, /_test$/);
+  const pool = await connect(cfg), ids=[]; t.after(async()=>{try{if(ids.length){const marks=ids.map(()=>'?').join(',');await pool.query('DELETE FROM app_job_items WHERE job_id IN ('+marks+')',ids);await pool.query('DELETE FROM app_jobs WHERE id IN ('+marks+')',ids);}}finally{await pool.end();}});
+  const { server, base } = await start(await createApp(cfg, pool)); t.after(() => new Promise(resolve => server.close(resolve)));
+  const c = client(base); assert.equal((await c.request('/api/records/summary')).status, 401); assert.equal((await c.request('/api/records/export.xlsx')).status, 401); await c.login();
+  const service = new Service(pool, cfg.publicUrl), actor = (await c.request('/api/auth')).data.user.id, baseline = (await c.request('/api/records/summary')).data;
+  const marker = 'Cumulative-' + crypto.randomUUID(), product = (await c.request('/api/products', 'POST', { customer: { name: marker, address: 'Workbook road' }, company: 'DE', product_type: 'ATS', brand: 'TEST', model: 'Original', serial_no: marker, details: { capacity: '30kg' } })).data;
+  const doc=await PDFDocument.create();doc.addPage([100,100]);const bytes=Buffer.from(await doc.save());
+  // 201 saved snapshots prove the workbook is not limited to the 200-card list.
+  for(let i=0;i<201;i++){
+    const id=crypto.randomUUID();ids.push(id);const date=i%2?'2025-01-02':'2024-01-02';
+    await service.q('INSERT INTO app_jobs(id,request_id,title,stamping_date,snapshot,pdf,created_by) VALUES (?,?,?,?,?,?,?)',[id,crypto.randomUUID(),marker,date,JSON.stringify({settings:{stamping_date:date},products:[product]}),bytes,actor]);
+  }
+  const summary=(await c.request('/api/records/summary')).data;assert.equal(summary.forms,baseline.forms+201);assert.equal(summary.records,baseline.records+201);
+  assert.equal((await c.request('/api/jobs')).data.length,200);
+  async function exported(){const result=await c.request('/api/records/export.xlsx');assert.equal(result.status,200);const book=new Excel.Workbook();await book.xlsx.load(result.data);assert.deepEqual(book.worksheets[0].getRow(1).values.slice(1),headers);return book.worksheets[0].getSheetValues().slice(2).filter(row=>row[2]===marker);}
+  let rows=await exported();assert.equal(rows.length,201);assert.deepEqual(new Set(rows.map(row=>row[1])),new Set(['2024-01-02','2025-01-02']));
+  const changed=await c.request('/api/jobs/'+ids[0],'PUT',{company:'MCM',stamping_date:'2026-10-16',product_ids:[product.id],product_overrides:{[product.id]:{model:'Corrected model'}},title:marker});assert.equal(changed.status,200);
+  rows=await exported();assert.equal(rows.length,201);assert.equal(rows.filter(row=>row[8]==='Corrected model'&&row[1]==='2026-10-16').length,1);
+  assert.equal((await c.request('/api/jobs/'+ids[1],'DELETE')).status,200);
+  rows=await exported();assert.equal(rows.length,200);assert.equal((await c.request('/api/records/summary')).data.forms,baseline.forms+200);
+  await service.q('DELETE FROM app_job_items WHERE job_id=?',[ids[0]]);
+});

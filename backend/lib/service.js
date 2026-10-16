@@ -159,10 +159,15 @@ class Service {
   }
   async deleteJob(jobId,user) { await this.ownedJob(jobId,user);await this.q('DELETE FROM app_job_items WHERE job_id=?',[jobId]);await this.q('DELETE FROM app_jobs WHERE id=?',[jobId]);await this.audit(user.id,'job.delete',jobId);return {success:true}; }
   async exportProducts() { const rows=await this.q(productSql+' ORDER BY p.created_at LIMIT 20001');check(rows.length<=20000,'More than 20,000 products. Export in smaller batches.');return require('./export').records(rows.map(p=>({p:{...p,details:decode(p.details)},settings:{},index:0}))); }
+  async recordSummary() {
+    const row=await this.one("SELECT COUNT(*) AS forms,COALESCE(SUM(JSON_LENGTH(JSON_EXTRACT(snapshot,'$.products'))),0) AS records,DATE_FORMAT(MIN(stamping_date),'%Y-%m-%d') AS first_date,DATE_FORMAT(MAX(stamping_date),'%Y-%m-%d') AS last_date FROM app_jobs");
+    return {...row,forms:Number(row.forms),records:Number(row.records)};
+  }
   async exportRecords(jobId) {
+    if(!jobId)check((await this.recordSummary()).records<=200000,'The saved workbook exceeds 200,000 records. Export individual forms.');
     const rows=jobId?[await this.job(jobId)]:await this.q('SELECT title,snapshot FROM app_jobs ORDER BY stamping_date,created_at');
     const records=rows.flatMap(row=>{const snap=typeof row.snapshot==='object'&&row.snapshot.products?row.snapshot:decode(row.snapshot);return snap.products.map((p,index)=>({p,settings:snap.settings,index}));});
-    check(records.length<=20000,'More than 20,000 records. Export individual forms.');
+    check(records.length<=200000,'More than 200,000 records. Export individual forms.');
     return require('./export').records(records);
   }
   async jobs() { return this.q("SELECT j.id,j.title,j.stamping_date,j.created_at,j.created_by,u.username,JSON_LENGTH(JSON_EXTRACT(j.snapshot,'$.products')) AS count FROM app_jobs j JOIN app_users u ON u.id=j.created_by ORDER BY j.created_at DESC LIMIT 200"); }

@@ -8,7 +8,7 @@ Version **2026.10.15.7**. Node.js, HTML, JavaScript and MySQL. No Java installat
 2. Extract this project and double-click `start-windows.bat`.
 3. Keep the startup window open. It installs dependencies on the first run and opens the website.
 4. On first use, enter your MySQL connection details in the local setup page. If no account exists, create an administrator with a password of at least 8 characters.
-5. Sign in and open **Products & Scan** or **Excel Import**.
+5. Sign in and open **Products & Scan** or **Management → Excel Import**.
 
 The alternative launcher `启动网站.bat` performs the same action. Run only one launcher.
 
@@ -43,8 +43,10 @@ npm run admin:password
 - Choose **B — New** or **L — Used** for condition. The List Format prints B/L; official DE/MCM forms use their original checkbox values.
 - Stamping fees and sticker serials are entered per product. Fees appear in the separate List Format with page subtotals and a final total.
 - Phone and tablet layouts show priority columns. Open a row to view all fields and change the fee for the current print.
-- **Saved Forms** provides DE/MCM PDF, List Format PDF and Excel exports. Staff can edit or delete their own forms; administrators can manage all forms. Saved form corrections do not change the product library.
-- **Website Settings** contains the logo preview/upload and deployed website URL. Logos are stored in MySQL and survive restarts.
+- **Saved Forms → Download all saved records** downloads `JX-Saved-Records.xlsx`: one cumulative workbook of all saved snapshots across all dates and types, using the 18 columns from 2025.xlsx. The summary includes older records beyond the 200 forms displayed. Changes and deletions appear in the next download; each visit stays a separate row. A repeated download creates a complete current workbook, rather than appending duplicate rows. Browsers may number duplicate filenames; replace the old local copy to keep one file.
+- **Saved Forms** also provides DE/MCM PDF, List Format PDF and optional single-form Excel exports under **Export only this form**. Staff can edit or delete their own forms; administrators can manage all forms. Saved form corrections do not change the product library.
+- **Management** combines **Excel Import**, **Staff Accounts**, and **Website Settings** as collapsible panels, available only to administrators. Existing links to the old sections open the matching panel.
+- **Management → Website Settings** contains the logo preview/upload and deployed website URL. Logos are stored in MySQL and survive restarts.
 
 The website interface, prompts and API errors are in English. Customer data and official uploaded DE/MCM templates retain their original language.
 
@@ -69,7 +71,7 @@ Large original files are stored using binary parameters. If MySQL's packet capac
 
 ## Import batches and one master workbook
 
-**Excel Import → Download master Excel** downloads `JX-Master-Records.xlsx` with the same 18 headers. It contains:
+**Management → Excel Import → Download master Excel** downloads `JX-Master-Records.xlsx` with the same 18 headers. It contains:
 
 - Original historical rows from every remaining import batch.
 - Manually created or edited product records, including products retained after their import was cleared.
@@ -85,7 +87,7 @@ Only unused products known to have been created by imports are removed. Products
 
 Old import batches are indexed automatically the first time this page is opened. Preparing a large older workbook may take time; keep the page open.
 
-The master workbook is limited to 200,000 rows. Product-library and saved-form exports have separate 20,000-row limits.
+The imported/manual master workbook and cumulative saved-form workbook each allow up to 200,000 rows. Product-library exports have a separate 20,000-row limit.
 
 ## Phone testing and remote use
 

@@ -60,7 +60,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.2', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.3', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -114,9 +114,10 @@ async function apiApp(pool, config) {
   app.get('/api/jobs/:id/list.pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobList(req.params.id), 'stamping-list.pdf')));
   route('post', '/api/jobs', (s, r) => s.saveJob(r.body, r.user.id), true);
   route('get', '/api/jobs', s => s.jobs());
-  const excelResponse=(res,bytes)=>res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').attachment('2025-format-records.xlsx').send(bytes);
+  const excelResponse=(res,bytes,name='2025-format-records.xlsx')=>res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').set('Cache-Control','no-store').attachment(name).send(bytes);
   app.get('/api/library/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportProducts())));
-  app.get('/api/records/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords())));
+  route('get','/api/records/summary',s=>s.recordSummary());
+  app.get('/api/records/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(),'JX-Saved-Records.xlsx')));
   app.get('/api/jobs/:id/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(req.params.id))));
   route('get','/api/jobs/:id',(s,r)=>s.job(r.params.id));
   route('put','/api/jobs/:id',(s,r)=>s.updateJob(r.params.id,r.body,r.user),true);
