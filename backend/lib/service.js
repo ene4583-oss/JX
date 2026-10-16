@@ -42,13 +42,32 @@ class Service {
   }
   hydrate(row) { return { ...row, details: decode(row.details), template_page: formats.types.indexOf(row.product_type) + 1 }; }
   async product(productId) { return this.hydrate(await this.one(productSql + 'WHERE p.id=?', [productId])); }
-  async products(q, page) {
-    check(q.length <= 100 && Number.isInteger(page) && page >= 0 && page <= 100000, 'Invalid search conditions.');
+  productSearch(q) {
+    check(typeof q==='string'&&q.length<=100, 'Search text is too long.');
     const filter = "WHERE c.name LIKE ? OR p.serial_no LIKE ? OR p.brand LIKE ? OR p.model LIKE ? OR c.address LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.new_reg')) LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.old_reg')) LIKE ?";
     const args = Array(7).fill(`%${q}%`);
+    return {filter,args};
+  }
+  async products(q,page) {
+    check(Number.isInteger(page)&&page>=0&&page<=100000,'Invalid search conditions.');
+    const {filter,args}=this.productSearch(q);
     const count = await this.one('SELECT COUNT(*) AS count FROM app_products p JOIN app_customers c ON c.id=p.customer_id ' + filter, args);
     const rows = await this.q(productSql + filter + ' ORDER BY p.updated_at DESC,p.id LIMIT 30 OFFSET ?', [...args, page * 30]);
     return { total: Number(count.count), page, items: rows.map(row => this.hydrate(row)) };
+  }
+  async qrProducts(q){
+    const {filter,args}=this.productSearch(q),max=require('./qr-labels').MAX_LABELS;
+    const rows=await this.q(productSql+filter+' ORDER BY p.updated_at DESC,p.id LIMIT '+(max+1),args);
+    check(rows.length<=max,'More than '+max+' matching products. Refine the search, or select individual pages.');
+    return rows.map(row=>this.hydrate(row));
+  }
+  async qrLabels(input){
+    const ids=input?.product_ids,max=require('./qr-labels').MAX_LABELS;
+    check(Array.isArray(ids)&&ids.length>0&&ids.length<=max,'Select 1–'+max+' products for QR labels.');
+    check(ids.every(value=>typeof value==='string'&&/^[0-9a-f-]{36}$/i.test(value))&&new Set(ids).size===ids.length,'Invalid or duplicate product IDs.');
+    const rows=await this.q(productSql+' WHERE p.id IN ('+ids.map(()=>'?').join(',')+')',ids),byId=new Map(rows.map(row=>[row.id,this.hydrate(row)]));
+    check(rows.length===ids.length,'Some selected products no longer exist. Refresh the QR selection.',404);
+    return require('./qr-labels').generate(ids.map(id=>byId.get(id)),this.publicUrl);
   }
   async saveProduct(existing, input, user) {
     let customer = text(input, 'customer_id', 36);
