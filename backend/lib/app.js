@@ -60,7 +60,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.1', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.2', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -94,6 +94,7 @@ async function apiApp(pool, config) {
   route('get', '/api/network',()=>({phone_url:service.publicUrl,addresses:network.lanUrls(config.port),local_only:new URL(service.publicUrl).hostname==='localhost',outstation_ready:service.publicUrl.startsWith('https://')}));
   route('get', '/api/formats', () => ({ companies: formats.companies, types: formats.types, details: formats.details }));
   route('get', '/api/customers', (s, r) => s.customers(String(r.query.q || '')));
+  route('get', '/api/customers/:id', (s, r) => s.customer(r.params.id));
   route('post', '/api/customers', (s, r) => s.createManualCustomer(r.body, r.user.id), true);
   route('put', '/api/customers/:id', (s, r) => s.updateCustomer(r.params.id, r.body, r.user.id), true);
   route('get', '/api/products', (s, r) => s.products(String(r.query.q || ''), Number(r.query.page || 0)));

@@ -27,9 +27,10 @@ class Service {
     return {...await this.one('SELECT * FROM app_customers WHERE id=?', [customerId]),newly_created:true};
   }
   async createManualCustomer(input,user){const customer=await this.createCustomer(input,user);await this.q('INSERT IGNORE INTO app_manual_customers(customer_id) VALUES (?)',[customer.id]);return customer;}
+  async customer(customerId) { return this.one('SELECT * FROM app_customers WHERE id=?', [customerId]); }
   async customers(q) {
     check(q.length <= 100, 'Search text is too long.');
-    return this.q('SELECT * FROM app_customers WHERE name LIKE ? OR phone LIKE ? ORDER BY updated_at DESC LIMIT 100', [`%${q}%`, `%${q}%`]);
+    return this.q('SELECT * FROM app_customers WHERE name LIKE ? OR phone LIKE ? OR address LIKE ? ORDER BY updated_at DESC LIMIT 100', [`%${q}%`, `%${q}%`, `%${q}%`]);
   }
   async updateCustomer(customerId, input, user) {
     const name = text(input, 'name', 255), address = text(input, 'address', 2000);

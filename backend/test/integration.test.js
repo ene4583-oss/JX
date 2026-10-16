@@ -197,3 +197,26 @@ test('MySQL: import batches clear only unused imported data; master workbook inc
  const legacy=await workbook([row('Legacy','LEGACY')]),legacyHash=hash(legacy.toString('base64'));await s.transaction(db=>imports.commit(db,legacy,'AUTO',actor));const legacyProduct=(await s.products('LEGACY',0)).items[0];await s.q('DELETE FROM app_import_batch_info WHERE file_hash=?',[legacyHash]);await s.q('DELETE FROM app_import_rows WHERE file_hash=?',[legacyHash]);await s.q('DELETE FROM app_import_products WHERE product_id=?',[legacyProduct.id]);assert.equal((await s.transaction(db=>batches.list(db)))[0].record_count,1);await s.transaction(db=>batches.clear(db,legacyHash,actor));await assert.rejects(s.product(legacyProduct.id),/Record not found/);
  const {server,base}=await start(await createApp(cfg,pool));t.after(()=>new Promise(resolve=>server.close(resolve)));const admin=client(base);await admin.login();assert.equal((await admin.request('/api/import/batches','DELETE',undefined,true)).status,403);const staffName='batchstaff';await admin.request('/api/admin/users','POST',{username:staffName,password:'Test1234',role:'EMPLOYEE'});const staff=client(base);await staff.login(staffName,'Test1234');assert.equal((await staff.request('/api/import/batches','DELETE')).status,403);assert.equal((await staff.request('/api/import/batches')).status,403);
 });
+
+test('MySQL: one customer edit updates twenty linked products and preserves saved snapshots', { skip: !enabled }, async t => {
+  const cfg = config(); assert.match(cfg.dbName, /_test$/);
+  const pool = await connect(cfg); t.after(() => pool.end());
+  const { server, base } = await start(await createApp(cfg, pool)); t.after(() => new Promise(resolve => server.close(resolve)));
+  const c = client(base); assert.equal((await c.request('/api/customers/unknown')).status, 401); await c.login();
+  const service = new Service(pool, cfg.publicUrl), actor = (await c.request('/api/auth')).data.user.id;
+  const original = (await c.request('/api/customers', 'POST', { name: 'Shared ' + crypto.randomUUID(), address: 'Original address', phone: '0123456789' })).data;
+  const products = [];
+  for (let i = 0; i < 20; i++) products.push(await service.transaction(s => s.saveProduct(null, { customer_id: original.id, company: 'DE', product_type: i % 2 ? 'ATS' : 'ATN', brand: 'SHARED', model: String(i), serial_no: crypto.randomUUID(), details: { capacity: '30kg' } }, actor)));
+  const job = (await c.request('/api/jobs', 'POST', { company: 'DE', stamping_date: '2026-10-16', product_ids: [products[0].id], request_id: crypto.randomUUID() })).data;
+  const before = (await c.request('/api/customers/' + original.id)).data;
+  const update = { ...before, name: before.name + ' Updated', address: 'Updated address', phone: '0199999999', area: 'Updated area' };
+  const result = await c.request('/api/customers/' + original.id, 'PUT', update); assert.equal(result.status, 200); assert.equal(result.data.version, before.version + 1);
+  assert.equal((await c.request('/api/customers/' + original.id, 'PUT', update)).status, 409);
+  for (const product of products) {
+    const current = await service.product(product.id);
+    for (const key of ['name', 'address', 'phone', 'area']) assert.equal(current[key], update[key]);
+    assert.equal(current.id, product.id); assert.equal(current.customer_id, original.id); assert.equal(current.version, product.version);
+  }
+  assert.equal((await c.request('/api/jobs/' + job.id)).data.snapshot.products[0].address, 'Original address');
+  assert.equal((await c.request('/api/customers?q=Updated%20address')).data.some(row => row.id === original.id), true);
+});
