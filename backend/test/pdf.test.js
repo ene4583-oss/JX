@@ -38,3 +38,19 @@ test('List Format paginates all products and totals decimal fees without example
   assert.equal(extracted.status,0);const text=extracted.stdout.toString();assert.match(text,/3\.00/);assert.doesNotMatch(text,/0\.00/);assert.match(text,/X100/);assert.match(text,/\bB\b/);assert.match(text,/\bL\b/);assert.doesNotMatch(text,/\bBaru\b|\bLama\b/);assert.match(text,/001234/);assert.match(text,/OLD123/);assert.match(text,/NEW456/);
   await fs.writeFile(path.join(os.tmpdir(),'jx-list-regression.pdf'),bytes);
 });
+
+test('calibrated writing baselines stay fixed when a long serial number shrinks', async () => {
+  const { decodePDFRawStream }=require('pdf-lib');
+  const base={company:'MCM',product_type:'ATS',name:'Customer',address:'Road',area:'RAUB',brand:'TEST',model:'Model',details:{}};
+  const bytes=await pdf.generate({settings:{stamping_date:'2026-10-16'},products:[{...base,serial_no:'SHORT'},{...base,serial_no:'ABCDEFGHIJKLMNO1234567890'}]});
+  const doc=await PDFDocument.load(bytes),positions=[],sizes=[];
+  for(const page of doc.getPages()){
+    const contents=page.node.Contents(),streams=contents.asArray?contents.asArray():[contents];
+    const source=streams.map(ref=>Buffer.from(decodePDFRawStream(doc.context.lookup(ref)).decode()).toString('latin1')).join('\n');
+    const matrices=[...source.matchAll(/1 0 0 1 ([\d.-]+) ([\d.-]+) Tm/g)].map(m=>({x:Number(m[1]),y:Number(m[2])}));
+    const serialMatrix=[...source.matchAll(/1 0 0 1 342 ([\d.-]+) Tm/g)][0];assert.ok(serialMatrix);const fontSizes=[...source.slice(0,serialMatrix.index).matchAll(/([\d.]+) Tf/g)];sizes.push(Number(fontSizes.at(-1)[1]));
+    const serial=matrices.filter(m=>Math.abs(m.x-342)<.01);assert.equal(serial.length,1,'Serial number stays on a single writing line');positions.push(serial[0].y);
+  }
+  assert.ok(sizes[1]<sizes[0],'Long serial uses a smaller font');
+  assert.equal(positions[0],positions[1],'Shrinking a long serial must not move it off its writing line');
+});

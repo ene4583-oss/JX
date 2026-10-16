@@ -32,7 +32,7 @@ npm run admin:password
 
 ## Products, customers and printing
 
-- **Products & Scan** starts with no records. Search by old/new registration number, customer name, address, serial, brand or Model, or scan a QR. Results show Name, Full address, Registration No., Brand and Model with Details, QR / Reprint, Edit and Add to print queue actions. On phones, the same fields stack vertically. Open Details for the remaining fields and history.
+- **Products & Scan** starts with no records. Partial searches update automatically after a brief typing pause, including the existing-customer picker and Bulk print QR search; pressing Search still works. Search by old/new registration number, customer name, address, serial, brand or Model, or scan a QR. Results show Name, Full address, Registration No., Brand and Model with Details, QR / Reprint, Edit and Add to print queue actions. On phones, the same fields stack vertically. Open Details for the remaining fields and history.
 - Scanning displays the matching product for review. Choose **Add to print queue** explicitly; paired phones send the product to the computer at that point. Product Excel export is under **More tools**.
 - **Add product / customer** supports manual entry. Choose an existing customer or enter a new one. **Add customer only** creates a customer without a product on the same page. Search results include matching customers; there is no separate Customers page.
 - Use **Edit customer** on a product row, or **Edit customer for all products** in Details, to change the shared name, address, area and phone once. All products linked to that customer immediately use those details, including items already in this device’s print queue. Product IDs and QR links stay the same; existing saved PDFs retain their historical snapshots.
@@ -130,3 +130,5 @@ RUN_MYSQL_TESTS=true npm --prefix backend test
 Default connection: localhost:3307, root with an empty password, database `jianxu_node_test`. Override with `TEST_DB_HOST`, `TEST_DB_PORT`, `TEST_DB_USER`, `TEST_DB_PASSWORD` and `TEST_DB_NAME`. Never use a production database. Batch tests create and drop a uniquely named `jx_batch_*_test` database and require permission for those test databases.
 
 Tests cover authentication, permissions, CSRF, QR identities, phone pairing, PDF generation, source-column recovery, large uploads, master export and protected batch clearing. Browser checks cover manual entry, product tables, batch clearing, master downloads and phone/tablet/desktop layouts. Physical phone cameras, printers and public hosting still need checks in the actual deployment environment.
+
+ATN, ATS and BTU writing positions are calibrated for DE and MCM, with fixed baselines when text shrinks. Existing saved PDFs retain their old placement; edit and save a form again to regenerate it with the corrected positions.

@@ -137,3 +137,14 @@ $('bulk-qr-search').onsubmit=e=>{e.preventDefault();bulkQrQuery=e.target.element
 $('bulk-qr-all').onclick=()=>run(async()=>{const query=bulkQrQuery,rows=await api('/qr/products?q='+encodeURIComponent(query));if(query!==bulkQrQuery)return;if(new Set([...bulkQrSelected.keys(),...rows.map(p=>p.id)]).size>500)throw Error('Select up to 500 labels per batch. Clear the selection or narrow your search.');for(const p of rows)bulkQrSelected.set(p.id,p);await bulkQrProducts();});
 $('bulk-qr-clear').onclick=()=>{bulkQrSelected.clear();bulkQrCount();run(bulkQrProducts);};
 $('bulk-qr-print').onclick=()=>run(async()=>{const button=$('bulk-qr-print');if(bulkQrBusy)return;bulkQrBusy=true;button.disabled=true;try{const blob=await api('/qr/labels.pdf',{method:'POST',body:{product_ids:[...bulkQrSelected.keys()]},blob:true});if(bulkQrPdfUrl)URL.revokeObjectURL(bulkQrPdfUrl);bulkQrPdfUrl=URL.createObjectURL(blob);const link=$('bulk-qr-pdf');link.href=bulkQrPdfUrl;link.hidden=false;link.click();message('QR labels generated. Print the PDF at 100% / Actual size.');}finally{bulkQrBusy=false;bulkQrCount();}});
+
+function liveSearch(input,search){let timer;const schedule=event=>{clearTimeout(timer);if(event?.isComposing)return;timer=setTimeout(()=>run(search),250);};input.addEventListener('input',schedule);input.addEventListener('compositionend',schedule);input.form?.addEventListener('submit',()=>clearTimeout(timer));}
+liveSearch($('product-search').elements.q,async()=>{query=$('product-search').elements.q.value.trim();lookupProduct=null;page=0;await products();});
+$('product-search').elements.q.addEventListener('input',()=>productSearchRequest++);
+liveSearch($('bulk-qr-search').elements.q,async()=>{bulkQrQuery=$('bulk-qr-search').elements.q.value.trim();bulkQrPage=0;await bulkQrProducts();});
+$('bulk-qr-search').elements.q.addEventListener('input',()=>bulkQrRequest++);
+let customerLookupRequest=0;
+async function lookupCustomers(){const request=++customerLookupRequest,q=$('lookup-customer').value.trim();if(!q){choices=[];$('customer-options').replaceChildren(new Option('Select or enter a customer',''));return;}const list=await api('/customers?q='+encodeURIComponent(q));if(request!==customerLookupRequest)return;choices=list;$('customer-options').replaceChildren(new Option(list.length?'Choose a matching customer':'No match — enter a new customer',''),...list.map(c=>new Option(c.name+' · '+c.address,c.id)));}
+$('lookup-customer-button').onclick=()=>run(lookupCustomers);
+$('lookup-customer').addEventListener('input',()=>customerLookupRequest++);
+liveSearch($('lookup-customer'),lookupCustomers);

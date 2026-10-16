@@ -27,16 +27,16 @@ function wrap(font, value, size, width) {
   }
   return lines;
 }
-function drawText(page, font, supported, field, value, rect, lineHeight) {
+function drawText(page, font, supported, field, value, rect, lineHeight, baselineSize) {
   const [x, top, width, height] = rect;
   let size = 9;
   let lines = wrap(font, value, size, width - 2);
-  const occupied=()=>lineHeight?(lines.length-1)*lineHeight+size:lines.length*size*1.18;
+  const occupied=()=>baselineSize?(lines.length-1)*(lineHeight||size*1.18)+baselineSize:lineHeight?(lines.length-1)*lineHeight+size:lines.length*size*1.18;
   while (size > 5 && occupied() > height) { size -= .25; lines = wrap(font, value, size, width - 2); }
   check(occupied() <= height, `${field} is too long for the form. Shorten it and retry.`);
   check([...value.replace(/\n/g, '')].every(char => supported.has(char.codePointAt(0))), 'Some characters are not supported by the PDF font. Check the text.');
   lines.forEach((line, index) => {
-    const y=page.getHeight()-top-size-index*(lineHeight||size*1.18);
+    const y=page.getHeight()-top-(baselineSize||size)-index*(lineHeight||size*1.18);
     page.drawRectangle({x:x+1,y:y-1,width:Math.min(width-2,font.widthOfTextAtSize(line,size)+1),height:size+1,color:rgb(1,1,1)});
     page.drawText(line,{font,size,x:x+1,y,color:rgb(0,0,0)});
   });
@@ -69,7 +69,7 @@ async function generate(snapshot) {
     for (const [field, rect] of Object.entries(spec.fields)) {
       let value = String(values[field] ?? '').replace(/[\x00-\x09\x0b-\x1f\x7f]/g, ' ').trim();
       if (field === 'owner' && rect[3] < 30) value = value.replace(/\n/g, ', ');
-      if (value) drawText(page, font, supported, field, value, rect, field==='owner'?spec.owner_line_height:undefined);
+      if (value) drawText(page, font, supported, field, value, rect, field==='owner'?spec.owner_line_height:undefined,spec.baseline_size);
     }
     for (const { key, options } of spec.checks) {
       const rect = Object.hasOwn(options, values[key]) ? options[values[key]] : null;
