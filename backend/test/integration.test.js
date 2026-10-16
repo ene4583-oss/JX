@@ -271,3 +271,19 @@ test('MySQL: deleting and restoring a customer hides linked products and preserv
  assert.equal((await admin.request('/api/products/'+p.id+'/qr')).data.link,label.link);
  assert.equal((await admin.request('/api/products?q='+encodeURIComponent(tag))).data.total,1);
 });
+
+test('MySQL: remember login persists thirty days and expires or revokes correctly', {skip:!enabled}, async t=>{
+ const cfg=config();assert.match(cfg.dbName,/_test$/);const pool=await connect(cfg);t.after(()=>pool.end());const {server,base}=await start(await createApp(cfg,pool));t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const c=client(base);await c.login();const username='remember_'+crypto.randomUUID().slice(0,8),password='Remember-test-password-2026';
+ await c.request('/api/admin/users','POST',{username,password,role:'EMPLOYEE'});
+ const remembered=client(base);await remembered.request('/api/auth');assert.equal((await remembered.request('/api/login','POST',{username,password,remember_me:true})).status,200);await remembered.request('/api/auth');
+ function sid(cookie){return decodeURIComponent(cookie.split('=').slice(1).join('=')).slice(2).split('.')[0];}
+ async function sessionRow(cookie){return (await pool.query('SELECT expires,data FROM app_http_sessions WHERE session_id=?',[sid(cookie)]))[0][0];}
+ const row=await sessionRow(remembered.getCookie()),session=JSON.parse(row.data),thirtyDays=30*24*60*60*1000;
+ assert.ok(Number(row.expires)>Date.now()+thirtyDays-60000);assert.ok(Number(row.expires)<=Date.now()+thirtyDays);assert.ok(session.loginExpiresAt>Date.now()+thirtyDays-60000);
+ const restart=await start(await createApp(cfg,pool));t.after(()=>new Promise(resolve=>restart.server.close(resolve)));const reopened=client(restart.base);reopened.setCookie(remembered.getCookie());assert.equal((await reopened.request('/api/auth')).data.authenticated,true);
+ const expired={...session,loginExpiresAt:Date.now()-1};await pool.query('UPDATE app_http_sessions SET data=? WHERE session_id=?',[JSON.stringify(expired),sid(remembered.getCookie())]);assert.equal((await reopened.request('/api/auth')).data.authenticated,false);
+ const shorter=client(base);await shorter.login(username,password);const shortRow=await sessionRow(shorter.getCookie());assert.ok(Number(shortRow.expires)<=Date.now()+12*60*60*1000);assert.ok(Number(shortRow.expires)>Date.now()+11*60*60*1000);
+ await remembered.request('/api/auth');await remembered.request('/api/login','POST',{username,password,remember_me:'true'});await remembered.request('/api/auth');const oldCookie=remembered.getCookie();assert.equal((await remembered.request('/api/logout','POST')).status,200);const replay=client(base);replay.setCookie(oldCookie);assert.equal((await replay.request('/api/auth')).data.authenticated,false);
+ await remembered.request('/api/auth');await remembered.request('/api/login','POST',{username,password,remember_me:true});await remembered.request('/api/auth');const account=(await c.request('/api/admin/users')).data.find(u=>u.username===username);assert.equal((await c.request('/api/admin/users/'+account.id,'PUT',{username,role:'EMPLOYEE',active:true,password:'Changed-remember-password-2026'})).status,200);assert.equal((await remembered.request('/api/auth')).data.authenticated,false);
+});

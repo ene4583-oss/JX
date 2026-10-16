@@ -17,6 +17,7 @@ const pdf = require('./pdf');
 const network = require('./network');
 const imports = require('./import');
 const importLimits = require('./import-limits');
+const SHORT_SESSION_MS=12*60*60*1000, REMEMBER_SESSION_MS=30*24*60*60*1000;
 const frontend = path.join(__dirname, '../../frontend');
 const asyncCall = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const saveSession = req => new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
@@ -47,7 +48,7 @@ async function apiApp(pool, config) {
   const app = express(), service = new Service(pool, network.phoneUrl(config));
   harden(app, config);
   app.use(session({ name: 'jx.sid', secret: config.sessionSecret, store: new MysqlStore(pool), resave: false, saveUninitialized: false,
-    cookie: { httpOnly: true, secure: !!config.secureCookie, sameSite: 'lax', maxAge: 12 * 60 * 60 * 1000 } }));
+    cookie: { httpOnly: true, secure: !!config.secureCookie, sameSite: 'lax', maxAge: SHORT_SESSION_MS } }));
   app.get('/health', asyncCall(async (req, res) => { await pool.query('SELECT 1'); res.json({ status: 'ok' }); }));
   app.get('/api/setup', (req, res) => res.json({ needs_setup: false }));
   app.use('/api', asyncCall(async (req, res, next) => {
@@ -55,12 +56,12 @@ async function apiApp(pool, config) {
     if (req.session.userId) {
       const users = await service.q('SELECT id,username,role,active,password_hash FROM app_users WHERE id=?', [req.session.userId]);
       const user = users[0];
-      if (!user || !user.active || req.session.version !== hash(user.password_hash)) { delete req.session.userId; delete req.session.version; }
+      if (!user || !user.active || req.session.version !== hash(user.password_hash) || (req.session.loginExpiresAt && Date.now()>=req.session.loginExpiresAt)) { delete req.session.userId; delete req.session.version; delete req.session.loginExpiresAt; req.session.cookie.maxAge=SHORT_SESSION_MS; }
       else req.user = { id: user.id, username: user.username, role: user.role, active: true };
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.6', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.7', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -84,6 +85,8 @@ async function apiApp(pool, config) {
     const ok = await bcrypt.compare(password, encoded.startsWith('$2') ? encoded : '$2b$12$QhNt6bEd2Skv4Lp7tV7ySOrBN0KD5ClY8VHtCQOpmkCE1aQh2Z0fG');
     check(user && user.active && ok, 'Incorrect username or password.', 401);
     await regenerate(req); req.session.csrf = crypto.randomBytes(32).toString('hex'); req.session.userId = user.id; req.session.version = hash(stored);
+    const remember=[true,'true','on','1'].includes(req.body.remember_me),ttl=remember?REMEMBER_SESSION_MS:SHORT_SESSION_MS;
+    req.session.cookie.maxAge=ttl;req.session.loginExpiresAt=Date.now()+ttl;
     await saveSession(req); res.json({ success: true });
   }));
   app.get('/api/branding/logo',asyncCall(async(req,res)=>{const rows=await service.q('SELECT mime,image FROM app_branding WHERE id=1');if(!rows.length)return res.sendStatus(404);res.set('Cache-Control','no-cache').type(rows[0].mime).send(rows[0].image);}));
