@@ -11,7 +11,9 @@ where npm.cmd >nul 2>nul
 if errorlevel 1 goto missing_node
 node -e "process.exit(Number(process.versions.node.split('.')[0]) >= 22 ? 0 : 1)"
 if errorlevel 1 goto old_node
+if not exist "node_modules\pdfjs-dist\build\pdf.min.mjs" goto install_dependencies
 if exist "node_modules\.jianxu-installed" goto start_server
+:install_dependencies
 echo Installing dependencies. Please wait...
 call npm.cmd ci --omit=dev
 if errorlevel 1 goto install_failed

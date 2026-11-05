@@ -145,7 +145,7 @@ test('MySQL: Excel export, list fees and saved-form corrections/deletion preserv
   const outsiderName='outsider_'+crypto.randomUUID().slice(0,8);await admin.request('/api/admin/users','POST',{username:outsiderName,password:'Test1234',role:'EMPLOYEE'});const outsider=client(base);await outsider.login(outsiderName,'Test1234');assert.equal((await outsider.request('/api/jobs/'+jobId,'PUT',settings)).status,403);assert.equal((await outsider.request('/api/jobs/'+jobId,'DELETE')).status,403);
   assert.equal((await owner.request('/api/jobs/'+jobId,'PUT',settings)).status,200);const corrected=(await owner.request('/api/jobs/'+jobId)).data;assert.equal(corrected.snapshot.products[0].name,'Corrected customer');assert.equal(corrected.snapshot.products[0].details.capacity,'60kg');
   const afterBook=new Excel.Workbook();await afterBook.xlsx.load((await owner.request('/api/jobs/'+jobId+'/export.xlsx')).data);assert.equal(afterBook.worksheets[0].getCell('B2').text,'Corrected customer');
-  assert.equal((await owner.request('/api/products/'+p.id)).data.name,'Original customer');assert.equal((await owner.request('/api/jobs/'+jobId+'/list.pdf')).status,200);
+  assert.equal((await owner.request('/api/products/'+p.id)).data.name,'ORIGINAL CUSTOMER');assert.equal((await owner.request('/api/jobs/'+jobId+'/list.pdf')).status,200);
   assert.equal((await owner.request('/api/jobs/'+jobId,'DELETE',undefined,true)).status,403);assert.equal((await owner.request('/api/jobs/'+jobId,'DELETE')).status,200);assert.equal((await owner.request('/api/jobs/'+jobId+'/pdf')).status,404);assert.equal((await owner.request('/api/products/'+p.id)).status,200);
 });
 
@@ -192,7 +192,7 @@ test('MySQL: import batches clear only unused imported data; master workbook inc
  const list=await s.transaction(db=>batches.list(db));assert.equal(list.length,2);assert.ok(list.some(b=>b.filename==='2024.xlsx'));
  let book=new Excel.Workbook();await book.xlsx.load(await s.transaction(db=>batches.master(db)));let values=book.worksheets[0].getSheetValues().slice(2);assert.equal(values.filter(r=>r[9]==='SHARED').length,2);assert.ok(values.some(r=>r[8]==='HAND-KEYED'));assert.ok(values.some(r=>r[2]==='Customer only'));
  const cleared=await s.transaction(db=>batches.clear(db,hash1,actor));assert.equal(cleared.records,3);assert.equal(cleared.removed_products,0);assert.equal(cleared.kept_products,3);assert.equal((await s.product(shared.id)).id,shared.id);
- const all=await s.transaction(db=>batches.clear(db,null,actor));assert.equal(all.batches,1);assert.equal(all.removed_products,2);await assert.rejects(s.product(shared.id),/Record not found/);assert.equal((await s.product(edited.id)).details.notes,'Keep my correction');assert.equal((await s.product(used.id)).id,used.id);assert.equal((await s.product(manual.id)).model,'HAND-KEYED');assert.ok(await s.one('SELECT id FROM app_customers WHERE id=?',[standalone.id]));
+ const all=await s.transaction(db=>batches.clear(db,null,actor));assert.equal(all.batches,1);assert.equal(all.removed_products,2);await assert.rejects(s.product(shared.id),/Record not found/);assert.equal((await s.product(edited.id)).details.notes,'KEEP MY CORRECTION');assert.equal((await s.product(used.id)).id,used.id);assert.equal((await s.product(manual.id)).model,'HAND-KEYED');assert.ok(await s.one('SELECT id FROM app_customers WHERE id=?',[standalone.id]));
  book=new Excel.Workbook();await book.xlsx.load(await s.transaction(db=>batches.master(db)));values=book.worksheets[0].getSheetValues().slice(2);assert.ok(values.some(r=>r[8]==='HAND-KEYED'));assert.equal((await s.transaction(db=>batches.list(db))).length,0);
  const legacy=await workbook([row('Legacy','LEGACY')]),legacyHash=hash(legacy.toString('base64'));await s.transaction(db=>imports.commit(db,legacy,'AUTO',actor));const legacyProduct=(await s.products('LEGACY',0)).items[0];await s.q('DELETE FROM app_import_batch_info WHERE file_hash=?',[legacyHash]);await s.q('DELETE FROM app_import_rows WHERE file_hash=?',[legacyHash]);await s.q('DELETE FROM app_import_products WHERE product_id=?',[legacyProduct.id]);assert.equal((await s.transaction(db=>batches.list(db)))[0].record_count,1);await s.transaction(db=>batches.clear(db,legacyHash,actor));await assert.rejects(s.product(legacyProduct.id),/Record not found/);
  const {server,base}=await start(await createApp(cfg,pool));t.after(()=>new Promise(resolve=>server.close(resolve)));const admin=client(base);await admin.login();assert.equal((await admin.request('/api/import/batches','DELETE',undefined,true)).status,403);const staffName='batchstaff';await admin.request('/api/admin/users','POST',{username:staffName,password:'Test1234',role:'EMPLOYEE'});const staff=client(base);await staff.login(staffName,'Test1234');assert.equal((await staff.request('/api/import/batches','DELETE')).status,403);assert.equal((await staff.request('/api/import/batches')).status,403);
@@ -214,7 +214,7 @@ test('MySQL: one customer edit updates twenty linked products and preserves save
   assert.equal((await c.request('/api/customers/' + original.id, 'PUT', update)).status, 409);
   for (const product of products) {
     const current = await service.product(product.id);
-    for (const key of ['name', 'address', 'phone', 'area']) assert.equal(current[key], update[key]);
+    for (const key of ['name', 'address', 'phone', 'area']) assert.equal(current[key], update[key].toUpperCase());
     assert.equal(current.id, product.id); assert.equal(current.customer_id, original.id); assert.equal(current.version, product.version);
   }
   assert.equal((await c.request('/api/jobs/' + job.id)).data.snapshot.products[0].address, 'Original address');
@@ -236,9 +236,9 @@ test('MySQL: cumulative saved workbook includes older forms, edits and deletions
   }
   const summary=(await c.request('/api/records/summary')).data;assert.equal(summary.forms,baseline.forms+201);assert.equal(summary.records,baseline.records+201);
   assert.equal((await c.request('/api/jobs')).data.length,200);
-  async function exported(){const result=await c.request('/api/records/export.xlsx');assert.equal(result.status,200);const book=new Excel.Workbook();await book.xlsx.load(result.data);assert.deepEqual(book.worksheets[0].getRow(1).values.slice(1),headers);return book.worksheets[0].getSheetValues().slice(2).filter(row=>row[2]===marker);}
+  async function exported(){const result=await c.request('/api/records/export.xlsx');assert.equal(result.status,200);const book=new Excel.Workbook();await book.xlsx.load(result.data);assert.deepEqual(book.worksheets[0].getRow(1).values.slice(1),headers);return book.worksheets[0].getSheetValues().slice(2).filter(row=>row[2]===marker.toUpperCase());}
   let rows=await exported();assert.equal(rows.length,201);assert.deepEqual(new Set(rows.map(row=>row[1])),new Set(['2024-01-02','2025-01-02']));
-  const changed=await c.request('/api/jobs/'+ids[0],'PUT',{company:'MCM',stamping_date:'2026-10-16',product_ids:[product.id],product_overrides:{[product.id]:{model:'Corrected model'}},title:marker});assert.equal(changed.status,200);
+  const changed=await c.request('/api/jobs/'+ids[0],'PUT',{company:'MCM',stamping_date:'2026-10-16',product_ids:[product.id],product_overrides:{[product.id]:{model:'Corrected model'}},title:marker});assert.equal(changed.status,200,JSON.stringify(changed.data));
   rows=await exported();assert.equal(rows.length,201);assert.equal(rows.filter(row=>row[8]==='Corrected model'&&row[1]==='2026-10-16').length,1);
   assert.equal((await c.request('/api/jobs/'+ids[1],'DELETE')).status,200);
   rows=await exported();assert.equal(rows.length,200);assert.equal((await c.request('/api/records/summary')).data.forms,baseline.forms+200);
@@ -262,9 +262,9 @@ test('MySQL: deleting and restoring a customer hides linked products and preserv
  assert.equal((await admin.request('/api/products/'+p.id)).status,404);
  assert.equal((await admin.request('/api/products/'+p.id+'/qr')).status,404);
  assert.equal((await admin.request('/api/qr/labels.pdf','POST',{product_ids:[p.id]})).status,404);
- assert.equal((await admin.request('/api/jobs/'+job.id)).data.snapshot.products[0].name,tag);
+ assert.equal((await admin.request('/api/jobs/'+job.id)).data.snapshot.products[0].name,tag.toUpperCase());
  assert.equal((await admin.request('/api/jobs/'+job.id+'/pdf')).status,200);
- const exported=(await admin.request('/api/records/export.xlsx')).data,book=new Excel.Workbook();await book.xlsx.load(exported);assert.ok(book.worksheets[0].getSheetValues().slice(2).some(row=>row[2]===tag));
+ const exported=(await admin.request('/api/records/export.xlsx')).data,book=new Excel.Workbook();await book.xlsx.load(exported);assert.ok(book.worksheets[0].getSheetValues().slice(2).some(row=>row[2]===tag.toUpperCase()));
  const deleted=(await admin.request('/api/customers/deleted?q='+encodeURIComponent(tag))).data;assert.equal(deleted.length,1);assert.equal(deleted[0].id,p.customer_id);
  assert.equal((await staff.request('/api/customers/deleted')).status,403);assert.equal((await staff.request('/api/customers/'+p.customer_id+'/restore','POST')).status,403);
  assert.equal((await admin.request('/api/customers/'+p.customer_id+'/restore','POST')).status,200);

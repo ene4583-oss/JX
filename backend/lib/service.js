@@ -4,7 +4,7 @@ const QRCode = require('qrcode');
 const { check, text, id, hash, normalized, decode, date, HttpError } = require('./util');
 const formats = require('./formats');
 const pdf = require('./pdf');
-const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) ';
+const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone,c.version AS customer_version FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) ';
 class Service {
   constructor(db, publicUrl) { this.db = db; this.publicUrl = publicUrl; }
   async q(sql, args = []) { return (await this.db.query(sql, args))[0]; }
@@ -33,9 +33,9 @@ class Service {
     return this.q('SELECT * FROM app_customers WHERE NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) AND (name LIKE ? OR phone LIKE ? OR address LIKE ?) ORDER BY updated_at DESC LIMIT 100', [`%${q}%`, `%${q}%`, `%${q}%`]);
   }
   async updateCustomer(customerId, input, user) {
-    const name = text(input, 'name', 255), address = text(input, 'address', 2000);
+    const name = text(input, 'name', 255).toUpperCase(), address = text(input, 'address', 2000).toUpperCase();
     check(name, 'Enter the customer name.'); check(Number.isInteger(input.version), 'Reload the record.');
-    const result = await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=? AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id)', [hash(normalized(name) + '\n' + normalized(address)), name, address, text(input, 'area', 150), text(input, 'phone', 80), customerId, input.version]);
+    const result = await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=? AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id)', [hash(normalized(name) + '\n' + normalized(address)), name, address, text(input, 'area', 150).toUpperCase(), text(input, 'phone', 80).toUpperCase(), customerId, input.version]);
     check(result.affectedRows === 1, 'This customer changed. Reload it and try again.', 409);
     await this.audit(user, 'customer.update', customerId);
     return this.one('SELECT * FROM app_customers WHERE id=?', [customerId]);
@@ -72,7 +72,9 @@ class Service {
     check(typeof q==='string'&&q.length<=100, 'Search text is too long.');
     const filter = "WHERE c.name LIKE ? OR p.serial_no LIKE ? OR p.brand LIKE ? OR p.model LIKE ? OR c.address LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.new_reg')) LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.old_reg')) LIKE ?";
     const args = Array(7).fill(`%${q}%`);
-    return {filter,args};
+    if(!q.replace(/[\s/-]/g,''))return {filter,args};
+    const regExpression=key=>"UPPER(REPLACE(REPLACE(REPLACE(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(p.details,'$."+key+"')),''),' ',''),'-',''),'/','')) LIKE ?";
+    return {filter:filter+' OR '+regExpression('new_reg')+' OR '+regExpression('old_reg'),args:[...args,...Array(2).fill('%'+q.replace(/[\s/-]/g,'').toUpperCase()+'%')]};
   }
   async products(q,page) {
     check(Number.isInteger(page)&&page>=0&&page<=100000,'Invalid search conditions.');
@@ -96,12 +98,16 @@ class Service {
     return require('./qr-labels').generate(ids.map(id=>byId.get(id)),this.publicUrl);
   }
   async saveProduct(existing, input, user) {
+    check(input&&typeof input==='object'&&!Array.isArray(input),'Invalid product details.');
+    const upper=keys=>Object.fromEntries(keys.map(k=>[k,text(input,k,150).toUpperCase()]));input={...input,...upper(['brand','model','serial_no'])};if(input.customer){check(typeof input.customer==='object'&&!Array.isArray(input.customer),'Invalid customer details.');const c=input.customer;input.customer=Object.fromEntries([['name',255],['address',2000],['phone',80],['area',150]].map(([k,max])=>[k,text(c,k,max).toUpperCase()]));}
+    check(input.details==null||typeof input.details==='object'&&!Array.isArray(input.details),'Invalid product details.');
+    if(input.details)input.details={...input.details,...Object.fromEntries(['new_reg','old_reg','last_reg','capacity','manufacturer','notes','last_branch'].filter(k=>Object.hasOwn(input.details,k)).map(k=>[k,text(input.details,k,k==='notes'?1000:200).toUpperCase()]))};
     if(existing)await this.product(existing);
     let customer = text(input, 'customer_id', 36);
     if (!customer) {
       check(input.customer && typeof input.customer === 'object' && !Array.isArray(input.customer), 'Select or enter a customer.');
       customer = (await this.createCustomer(input.customer, user)).id;
-    } else await this.customer(customer);
+    } else {const current=await this.customer(customer);if(input.customer&&Object.hasOwn(input,'customer_version')){check(Number.isInteger(input.customer_version)&&current.version===input.customer_version,'Customer changed. Reload before saving.',409);const next=Object.fromEntries(['name','address','area','phone'].map(k=>[k,String(input.customer[k]??'').toUpperCase()]));if(Object.keys(next).some(k=>current[k]!==next[k]))await this.updateCustomer(customer,{...next,version:current.version},user);}}
     const company = text(input, 'company', 3), type = text(input, 'product_type', 20), brand = text(input, 'brand', 150), model = text(input, 'model', 150), serial = text(input, 'serial_no', 150);
     check(formats.valid(company, type), 'Choose DE / MCM and a valid product type.'); check(brand, 'Enter the brand.');
     const identity = serial ? hash([customer, normalized(brand), normalized(model), normalized(serial)].join('\n')) : null;
@@ -162,19 +168,20 @@ class Service {
     check(Array.isArray(ids) && ids.length > 0 && ids.length <= 50 && ids.every(value => typeof value === 'string') && new Set(ids).size === ids.length, 'Select 1–50 different products per print.');
     check(formats.companies.includes(input.company), 'Choose DE or MCM before printing.');
     const settings = Object.fromEntries(['stamping_date', 'bill_no', 'branch', 'stamping_fee', 'total_price'].map(key => [key, text(input, key, 150)]));
-    date(settings.stamping_date);
+    date(settings.stamping_date);settings.title=text(input,'title',200);
     settings.list_entries = {};
     check(input.product_overrides == null || typeof input.product_overrides === 'object' && !Array.isArray(input.product_overrides), 'Invalid form details.');
     check(input.list_entries == null || typeof input.list_entries === 'object' && !Array.isArray(input.list_entries), 'Invalid list data.');
     const products = [];
     for (const productId of ids) {
-      const p = await this.product(productId);
+      const p = await this.product(productId),currentRegistration=p.details.new_reg||p.details.old_reg||'';
       const override = input.product_overrides?.[productId];
       if (override) {
         for (const key of ['name','address','area','phone','brand','model','serial_no','product_type']) if(Object.hasOwn(override,key))p[key]=text(override,key,key==='address'?2000:255);
         if (override.details) for(const key of Object.keys(formats.details)) if(Object.hasOwn(override.details,key))p.details[key]=text(override.details,key,key==='notes'?1000:200);
         check(p.name.trim(), 'Enter the customer name.');
       }
+      if(input.workflow_mode){p.details.old_reg=currentRegistration;p.details.last_reg=currentRegistration;p.details.new_reg=p.details.new_reg||currentRegistration;}
       check(p.brand.trim(), 'Enter the product brand first.'); check(formats.types.includes(p.product_type), 'Confirm the product type before printing.');
       const entry = input.list_entries?.[productId] || {};
       const fee = text(entry, 'stamping_fee', 20), sticker = text(entry, 'sticker_no', 80);
@@ -186,11 +193,11 @@ class Service {
   }
   async previewList(input) { return pdf.generateList(await this.snapshot(input)); }
   async jobList(jobId) { return pdf.generateList(decode((await this.one('SELECT snapshot FROM app_jobs WHERE id=?', [jobId])).snapshot)); }
-  async preview(input) { return pdf.generate(await this.snapshot(input)); }
+  async preview(input) { const snap=await this.snapshot(input);return pdf.generate(snap,await require('./form-templates').resolved(this,snap)); }
   async saveJob(input, user) {
     const requestId = text(input, 'request_id', 36); check(/^[0-9a-f-]{36}$/i.test(requestId), 'Refresh the page and retry.');
-    const existing = await this.q('SELECT id FROM app_jobs WHERE request_id=? AND created_by=?', [requestId, user]); if (existing.length) {const deleted=await this.q('SELECT customer_id FROM app_deleted_customers WHERE customer_id=?',[existing[0].id]);check(!deleted.length,'This customer was deleted. An administrator can restore it from Deleted customers.',409);return existing[0];}
-    const snapshot = await this.snapshot(input), bytes = await pdf.generate(snapshot), jobId = id();
+    const existing = await this.q('SELECT id FROM app_jobs WHERE request_id=? AND created_by=?', [requestId, user]); if (existing.length) return existing[0];
+    const snapshot = await this.snapshot(input), bytes = await pdf.generate(snapshot,await require('./form-templates').resolved(this,snapshot)), jobId = id();
     await this.q('INSERT INTO app_jobs(id,request_id,title,stamping_date,snapshot,pdf,created_by) VALUES (?,?,?,?,?,?,?)', [jobId, requestId, text(input, 'title', 200) || 'Stamping ' + snapshot.settings.stamping_date, snapshot.settings.stamping_date, JSON.stringify(snapshot), bytes, user]);
     for (const product of snapshot.products) await this.q('INSERT INTO app_job_items(job_id,product_id) VALUES (?,?)', [jobId, product.id]);
     await this.audit(user, 'job.create', jobId); return { id: jobId };
@@ -198,7 +205,7 @@ class Service {
   async job(jobId) { const row=await this.one('SELECT id,title,created_by,snapshot FROM app_jobs WHERE id=?',[jobId]);return {...row,snapshot:decode(row.snapshot)}; }
   async ownedJob(jobId,user) { const job=await this.job(jobId);check(user.role==='ADMIN'||job.created_by===user.id,'You can only edit or delete your own saved forms.',403);return job; }
   async updateJob(jobId,input,user) {
-    await this.ownedJob(jobId,user);const snapshot=await this.snapshot(input),bytes=await pdf.generate(snapshot);
+    await this.ownedJob(jobId,user);const snapshot=await this.snapshot(input),bytes=await pdf.generate(snapshot,await require('./form-templates').resolved(this,snapshot));
     await this.q('UPDATE app_jobs SET title=?,stamping_date=?,snapshot=?,pdf=? WHERE id=?',[text(input,'title',200)||'Stamping '+snapshot.settings.stamping_date,snapshot.settings.stamping_date,JSON.stringify(snapshot),bytes,jobId]);
     await this.q('DELETE FROM app_job_items WHERE job_id=?',[jobId]);for(const p of snapshot.products)await this.q('INSERT INTO app_job_items(job_id,product_id) VALUES (?,?)',[jobId,p.id]);
     await this.audit(user.id,'job.update',jobId);return {id:jobId};
@@ -209,9 +216,9 @@ class Service {
     const row=await this.one("SELECT COUNT(*) AS forms,COALESCE(SUM(JSON_LENGTH(JSON_EXTRACT(snapshot,'$.products'))),0) AS records,DATE_FORMAT(MIN(stamping_date),'%Y-%m-%d') AS first_date,DATE_FORMAT(MAX(stamping_date),'%Y-%m-%d') AS last_date FROM app_jobs");
     return {...row,forms:Number(row.forms),records:Number(row.records)};
   }
-  async exportRecords(jobId) {
-    if(!jobId)check((await this.recordSummary()).records<=200000,'The saved workbook exceeds 200,000 records. Export individual forms.');
-    const rows=jobId?[await this.job(jobId)]:await this.q('SELECT title,snapshot FROM app_jobs ORDER BY stamping_date,created_at');
+  async exportRecords(jobId,filter={}) {
+    const f=require('./workflow').filters(filter);if(!jobId){const count=await this.one("SELECT COALESCE(SUM(JSON_LENGTH(JSON_EXTRACT(snapshot,'$.products'))),0) AS n FROM app_jobs"+f.where,f.args);check(Number(count.n)<=200000,'More than 200,000 matching records. Choose a shorter date range.');}
+    const rows=jobId?[await this.job(jobId)]:await this.q('SELECT title,snapshot FROM app_jobs'+f.where+' ORDER BY stamping_date,created_at',f.args);
     const records=rows.flatMap(row=>{const snap=typeof row.snapshot==='object'&&row.snapshot.products?row.snapshot:decode(row.snapshot);return snap.products.map((p,index)=>({p,settings:snap.settings,index}));});
     check(records.length<=200000,'More than 200,000 records. Export individual forms.');
     return require('./export').records(records);

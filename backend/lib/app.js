@@ -26,19 +26,21 @@ function errorHandler(error, req, res, next) {
   if (res.headersSent) return next(error);
   let status = error.status || 500, message = error.message;
   if (error.code === 'ER_DUP_ENTRY') { status = 409; message = 'This record already exists. Search for it and edit it.'; }
-  else if (error instanceof multer.MulterError) { status = 400; message = req.path==='/api/admin/logo'?'Choose a PNG or JPG logo up to 2MB.':'Invalid upload or file too large. Excel files must be at most 30MB.'; }
+  else if (error instanceof multer.MulterError) { status = 400; message = req.path==='/api/admin/logo'?'Choose a PNG or JPG logo up to 2MB.':req.path.endsWith('/background')?'Choose one PDF background up to 20MB.':'Invalid upload or file too large. Excel files must be at most 30MB.'; }
   else if (status >= 500) { console.error('Operation failed:', error.code || error.name); message = 'The operation failed and changes were not saved. Check the database connection or contact an administrator.'; }
   res.status(status).json({ error: message });
 }
 function harden(app, config) {
   app.disable('x-powered-by'); if (config.trustProxy) app.set('trust proxy', config.trustProxy);
-  app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:', 'blob:'], connectSrc: ["'self'"], mediaSrc: ["'self'", 'blob:'], frameSrc: ["'self'", 'blob:'], objectSrc: ["'none'"], baseUri: ["'none'"], frameAncestors: ["'self'"], upgradeInsecureRequests: config.secureCookie ? [] : null } }, hsts: config.secureCookie ? undefined : false, crossOriginEmbedderPolicy: false }));
+  app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:', 'blob:'], fontSrc:["'self'",'data:','blob:'], connectSrc: ["'self'"], mediaSrc: ["'self'", 'blob:'], frameSrc: ["'self'", 'blob:'], objectSrc: ["'none'"], baseUri: ["'none'"], frameAncestors: ["'self'"], upgradeInsecureRequests: config.secureCookie ? [] : null } }, hsts: config.secureCookie ? undefined : false, crossOriginEmbedderPolicy: false }));
   app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   app.use(express.json({ limit: '1mb' })); app.use(express.urlencoded({ extended: false, limit: '20kb' }));
 }
 function staticFiles(app) {
   app.get(['/', '/index.html'], (req, res) => res.sendFile(path.join(frontend, 'index.html')));
-  for (const file of ['app.js', 'app.css']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
+  for (const file of ['app.js', 'app.css','workflow.js','templates.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
+  for(const resource of ['cmaps','standard_fonts','wasm'])app.use('/vendor/pdfjs/'+resource,express.static(path.join(__dirname,'../node_modules/pdfjs-dist',resource),{dotfiles:'deny'}));
+  app.use('/vendor/pdfjs',express.static(path.join(__dirname,'../node_modules/pdfjs-dist/build'),{dotfiles:'deny'}));
   app.use('/vendor', express.static(path.join(frontend, 'vendor'), { dotfiles: 'deny' }));
   for (const file of ['setup.html', 'setup.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
 }
@@ -61,7 +63,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.10.16.8', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.05.1', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -121,24 +123,32 @@ async function apiApp(pool, config) {
   app.post('/api/jobs/preview', asyncCall(async (req, res) => fileResponse(res, await service.preview(req.body), 'preview.pdf')));
   app.post('/api/jobs/list-preview', asyncCall(async (req, res) => fileResponse(res, await service.previewList(req.body), 'list-preview.pdf')));
   app.get('/api/jobs/:id/list.pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobList(req.params.id), 'stamping-list.pdf')));
+  route('post','/api/jobs/complete',(s,r)=>require('./workflow').complete(s,r.body,r.user),true);
+  route('get','/api/records',(s,r)=>require('./workflow').records(s,r.query));
   route('post', '/api/jobs', (s, r) => s.saveJob(r.body, r.user.id), true);
   route('get', '/api/jobs', s => s.jobs());
   const excelResponse=(res,bytes,name='2025-format-records.xlsx')=>res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').set('Cache-Control','no-store').attachment(name).send(bytes);
   app.get('/api/library/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportProducts())));
   route('get','/api/records/summary',s=>s.recordSummary());
-  app.get('/api/records/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(),'JX-Saved-Records.xlsx')));
+  app.get('/api/records/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(null,req.query),'JX-Saved-Records.xlsx')));
   app.get('/api/jobs/:id/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(req.params.id))));
   route('get','/api/jobs/:id',(s,r)=>s.job(r.params.id));
   route('put','/api/jobs/:id',(s,r)=>s.updateJob(r.params.id,r.body,r.user),true);
   route('delete','/api/jobs/:id',(s,r)=>s.deleteJob(r.params.id,r.user),true);
   app.get('/api/jobs/:id/pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobPdf(req.params.id), 'stamping.pdf')));
-  app.get('/api/templates/:company/:type', asyncCall(async (req, res) => fileResponse(res, await pdf.template(req.params.company, req.params.type), 'template.pdf')));
+  app.get('/api/templates/:company/:type',asyncCall(async(req,res)=>fileResponse(res,await require('./form-templates').background(service,req.params.company,req.params.type),'template.pdf')));
   const admin = (req, res, next) => { check(req.user.role === 'ADMIN', 'Administrator access is required.', 403); next(); };
   app.use(['/api/admin', '/api/import'], admin);
   app.put('/api/admin/network',asyncCall(async(req,res)=>{const next=configModule.validate({...config,publicUrl:text(req.body,'public_url',300)});check(next.publicUrl.startsWith('https://'),'Remote access URL must use HTTPS.');await service.q("INSERT INTO app_settings(setting_key,setting_value) VALUES('public_url',?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)",[next.publicUrl]);config.publicUrl=next.publicUrl;service.publicUrl=next.publicUrl;res.json({success:true,phone_url:service.publicUrl});}));
   const logoUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:2*1024*1024,files:1}}).single('file');
 
   app.post('/api/admin/logo',logoUpload,asyncCall(async(req,res)=>{const bytes=req.file?.buffer;check(bytes,'Choose a PNG or JPG image.');const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;check(png||jpg,'Logo must be a PNG or JPG image.');await service.q('INSERT INTO app_branding(id,mime,image) VALUES(1,?,?) ON DUPLICATE KEY UPDATE mime=VALUES(mime),image=VALUES(image)',[png?'image/png':'image/jpeg',bytes]);res.json({success:true});}));
+  const formTemplates=require('./form-templates');
+  route('get','/api/admin/templates/:company/:type',(s,r)=>formTemplates.meta(s,r.params.company,r.params.type));
+  route('put','/api/admin/templates/:company/:type',(s,r)=>formTemplates.save(s,r.params.company,r.params.type,r.body,r.user),true);
+  app.post('/api/admin/templates/:company/:type/preview',asyncCall(async(req,res)=>{const row=await formTemplates.get(service,req.params.company,req.params.type),meta=await formTemplates.meta(service,req.params.company,req.params.type);const layout=formTemplates.validateLayout(req.body.layout,meta.width,meta.height);const snap={settings:{stamping_date:'2026-11-05'},products:[{id:'sample',company:req.params.company,product_type:req.params.type,name:'SAMPLE CUSTOMER',address:'12 SAMPLE ROAD',area:'RAUB',phone:'0123456789',brand:'SAMPLE BRAND',model:'MODEL 123',serial_no:'SN00123',details:{new_reg:'CRA012345',capacity:'30 KG',manufacturer:'SAMPLE MAKER',condition:'Baru',usage:'Perdagangan'}}]};fileResponse(res,await pdf.generate(snap,{[req.params.company+'/'+req.params.type]:{...row,layout}}),'template-preview.pdf');}));
+  const backgroundUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024,files:1}}).single('file');
+  app.post('/api/admin/templates/:company/:type/background',backgroundUpload,asyncCall(async(req,res)=>res.json(await service.transaction(s=>formTemplates.upload(s,req.params.company,req.params.type,req.file,req.body,req.user)))));
   route('get', '/api/admin/users', s => s.users());
   route('post', '/api/admin/users', (s, r) => s.saveUser(null, r.body, r.user.id), true);
   route('put', '/api/admin/users/:id', (s, r) => s.saveUser(r.params.id, r.body, r.user.id), true);

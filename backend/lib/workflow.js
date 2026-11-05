@@ -1,0 +1,25 @@
+'use strict';
+const {check,text,id,hash,normalized,decode,date}=require('./util');
+const pdf=require('./pdf');
+const templates=require('./form-templates');
+async function complete(service,input,user){
+ const request=text(input,'request_id',36);check(/^[0-9a-f-]{36}$/i.test(request),'Refresh and retry.');
+ const exists=await service.q('SELECT id,snapshot FROM app_jobs WHERE request_id=?',[request]);if(exists.length){const own=await service.job(exists[0].id);check(own.created_by===user.id&&decode(exists[0].snapshot).settings.completed,'Request was already used.',409);return {id:exists[0].id,already_completed:true};}
+ check(Array.isArray(input.product_ids)&&input.product_ids.length>0&&input.product_ids.length<=50,'Complete 1–50 products at a time.');
+ const ids=[...new Set(input.product_ids)].sort();check(ids.length===input.product_ids.length&&ids.every(x=>typeof x==='string'),'Select different products.');
+ await service.q('SELECT id FROM app_products WHERE id IN ('+ids.map(()=>'?').join(',')+') ORDER BY id FOR UPDATE',ids);
+ const before=new Map();for(const pid of ids){const p=await service.product(pid);check(Number.isInteger(input.product_versions?.[pid])&&p.version===input.product_versions[pid],'A product changed. Refresh its queue details before saving.',409);check(input.customer_versions?.[pid]===p.customer_version,'Customer details changed. Refresh the product before saving.',409);before.set(pid,p);}
+ const snapshot=await service.snapshot(input);snapshot.settings.completed=true;
+ const customers=new Map();for(const p of snapshot.products){const old=before.get(p.id);const c={name:p.name.toUpperCase(),address:p.address.toUpperCase(),area:p.area.toUpperCase(),phone:p.phone.toUpperCase()};check(!customers.has(p.customer_id)||JSON.stringify(customers.get(p.customer_id))===JSON.stringify(c),'Products for the same customer must use the same customer details.');customers.set(p.customer_id,c);
+  p.name=c.name;p.address=c.address;p.area=c.area;p.phone=c.phone;p.brand=p.brand.toUpperCase();p.model=p.model.toUpperCase();p.serial_no=p.serial_no.toUpperCase();
+  p.details.old_reg=old.details.new_reg||old.details.old_reg||'';p.details.last_reg=p.details.old_reg;p.details.new_reg=String(p.details.new_reg||p.details.old_reg).toUpperCase();
+  check(!old.details.last_date||snapshot.settings.stamping_date>=old.details.last_date,'This date precedes the latest stamping date. Use Complete Record to view history.');
+ }
+ const bytes=await pdf.generate(snapshot,await templates.resolved(service,snapshot));
+ for(const cid of [...customers.keys()].sort()){const c=await service.one('SELECT * FROM app_customers WHERE id=? FOR UPDATE',[cid]),next=customers.get(cid);if(['name','address','area','phone'].some(k=>c[k]!==next[k]))await service.updateCustomer(cid,{...next,version:c.version},user.id);}
+ for(const p of snapshot.products){const old=before.get(p.id),details={...p.details,last_date:snapshot.settings.stamping_date,stamping_fee:snapshot.settings.list_entries[p.id]?.stamping_fee||p.details.stamping_fee||''};await service.saveProduct(p.id,{customer_id:p.customer_id,company:old.company,product_type:p.product_type,brand:p.brand,model:p.model,serial_no:p.serial_no,details,version:old.version},user.id);}
+ const jobId=id();await service.q('INSERT INTO app_jobs(id,request_id,title,stamping_date,snapshot,pdf,created_by) VALUES (?,?,?,?,?,?,?)',[jobId,request,text(input,'title',200)||'Stamping '+snapshot.settings.stamping_date,snapshot.settings.stamping_date,JSON.stringify(snapshot),bytes,user.id]);for(const p of snapshot.products)await service.q('INSERT INTO app_job_items(job_id,product_id) VALUES (?,?)',[jobId,p.id]);await service.audit(user.id,'job.complete',jobId);return {id:jobId};
+}
+function filters(input={}){const parts=[],args=[];if(input.from){date(input.from);parts.push('stamping_date>=?');args.push(input.from);}if(input.to){date(input.to);parts.push('stamping_date<=?');args.push(input.to);}check(!input.from||!input.to||input.from<=input.to,'Start date must be before end date.');return {where:parts.length?' WHERE '+parts.join(' AND '):'',args};}
+async function records(service,input){const {where,args}=filters(input),page=Number(input.page||0);check(Number.isInteger(page)&&page>=0,'Invalid page.');const count=await service.one("SELECT COALESCE(SUM(JSON_LENGTH(JSON_EXTRACT(snapshot,'$.products'))),0) AS n FROM app_jobs"+where,args);check(Number(count.n)<=200000,'More than 200,000 matching records. Choose a shorter date range.');const jobs=await service.q('SELECT id,title,created_by,snapshot FROM app_jobs'+where+' ORDER BY stamping_date DESC,created_at DESC,id',args);const items=[];for(const j of jobs){const snap=decode(j.snapshot);for(const p of snap.products)items.push({job_id:j.id,title:j.title,created_by:j.created_by,date:snap.settings.stamping_date,batch_size:snap.products.length,...p,fee:snap.settings.list_entries?.[p.id]?.stamping_fee||p.details.stamping_fee||''});}return {total:items.length,page,items:items.slice(page*50,(page+1)*50+50)};}
+module.exports={complete,filters,records};
