@@ -63,7 +63,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.05.1', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.05.2', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -120,6 +120,8 @@ async function apiApp(pool, config) {
   route('delete', '/api/pairs/:id', (s, r) => s.endPair(r.params.id, r.user.id), true);
   route('post', '/api/pairs/:id/accept', (s, r) => s.acceptPair(r.params.id, text(r.body, 'pair', 100), r.user.id), true);
   route('post', '/api/pairs/:id/items', (s, r) => s.send(r.params.id, text(r.body, 'mobile', 100), text(r.body, 'product', 36), r.user.id), true);
+  route('post','/api/pairs/:id/ack',(s,r)=>s.acknowledgeDeliveries(r.params.id,r.body,r.user.id),true);
+  route('post','/api/pairs/:id/delivery-status',(s,r)=>s.deliveryStatus(r.params.id,r.body));
   app.post('/api/jobs/preview', asyncCall(async (req, res) => fileResponse(res, await service.preview(req.body), 'preview.pdf')));
   app.post('/api/jobs/list-preview', asyncCall(async (req, res) => fileResponse(res, await service.previewList(req.body), 'list-preview.pdf')));
   app.get('/api/jobs/:id/list.pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobList(req.params.id), 'stamping-list.pdf')));
@@ -158,7 +160,7 @@ async function apiApp(pool, config) {
   route('delete','/api/import/batches',(s,r)=>batches.clear(s,null,r.user.id),true);
   app.get('/api/import/master.xlsx',asyncCall(async(req,res)=>{const bytes=await service.transaction(s=>batches.master(s));res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').attachment('JX-Master-Records.xlsx').send(bytes);}));
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: importLimits.maxFileBytes, files: 1, fields: 3 } }).single('file');
-  app.post('/api/import/preview', upload, asyncCall(async (req, res) => { check(req.file, 'Choose an Excel file.'); res.json((await imports.parse(req.file.buffer)).summary); }));
+  app.post('/api/import/preview', upload, asyncCall(async (req, res) => { check(req.file, 'Choose an Excel file.'); const parsed=await imports.parse(req.file.buffer);res.json({...parsed.summary,preview_rows:parsed.rows.slice(0,5).map(row=>Object.fromEntries(imports.headers.map(key=>[key,row[key]??''])))}); }));
   app.post('/api/import/commit', upload, asyncCall(async (req, res) => { check(req.file, 'Choose an Excel file.'); res.json(await service.transaction(s => imports.commit(s, req.file.buffer, text(req.body, 'company', 4), req.user.id, {repairMissing:req.body.repair_missing==='true',filename:req.file.originalname}))); }));
   staticFiles(app); app.use((req, res) => res.status(404).json({ error: 'Page or endpoint not found.' })); app.use(errorHandler);
   app.locals.pool = pool; return app;

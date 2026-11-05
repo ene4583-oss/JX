@@ -95,3 +95,10 @@ CREATE TABLE IF NOT EXISTS app_form_templates (
  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  PRIMARY KEY(company,product_type)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_scan_deliveries (
+ session_id VARCHAR(36) NOT NULL, product_id VARCHAR(36) NOT NULL,
+ version INT NOT NULL DEFAULT 1, acknowledged INT NOT NULL DEFAULT 0,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY(session_id,product_id),
+ FOREIGN KEY(session_id,product_id) REFERENCES app_scan_items(session_id,product_id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

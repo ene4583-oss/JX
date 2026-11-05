@@ -145,22 +145,32 @@ class Service {
     const result = await this.q('UPDATE app_scan_sessions SET pair_hash=NULL,mobile_hash=? WHERE id=? AND pair_hash=? AND pair_expires>NOW() AND expires_at>NOW()', [hash(mobile), sessionId, hash(pair)]);
     check(result.affectedRows === 1, 'Pairing code expired or was used. Create a new one on the computer.');
     await this.audit(user, 'pair.accept', sessionId);
-    return { id: sessionId, mobile };
+    const row=await this.one('SELECT expires_at FROM app_scan_sessions WHERE id=?',[sessionId]);return { id: sessionId, mobile,expires_at:String(row.expires_at).replace(' ','T')+'Z' };
   }
   async ownedPair(sessionId, user) { return this.one('SELECT * FROM app_scan_sessions WHERE id=? AND owner_id=? AND expires_at>NOW()', [sessionId, user]); }
   async pairStatus(sessionId, user) {
     const pair = await this.ownedPair(sessionId, user);
-    const rows = await this.q(productSql + 'JOIN app_scan_items i ON i.product_id=p.id WHERE i.session_id=? ORDER BY i.scanned_at,p.id', [sessionId]);
-    return { paired: !!pair.mobile_hash, items: rows.map(row => this.hydrate(row)) };
+    const rows = await this.q(productSql.replace('SELECT p.*,','SELECT p.*,COALESCE(delivery.version,0) AS delivery_version,COALESCE(delivery.acknowledged,0) AS delivery_acknowledged,') + 'JOIN app_scan_items i ON i.product_id=p.id LEFT JOIN app_scan_deliveries delivery ON delivery.session_id=i.session_id AND delivery.product_id=i.product_id WHERE i.session_id=? ORDER BY i.scanned_at,p.id', [sessionId]);
+    return { id:pair.id,expires_at:String(pair.expires_at).replace(' ','T')+'Z',paired: !!pair.mobile_hash, items: rows.map(row => this.hydrate(row)) };
   }
   async send(sessionId, mobile, productId, user) {
-    await this.one('SELECT id FROM app_scan_sessions WHERE id=? AND mobile_hash=? AND expires_at>NOW() FOR UPDATE', [sessionId, hash(mobile)]);
+    const active=await this.q('SELECT id FROM app_scan_sessions WHERE id=? AND mobile_hash=? AND expires_at>NOW() FOR UPDATE',[sessionId,hash(mobile)]);check(active.length,'Phone pairing expired or was ended. Create a new pairing QR on the computer and scan it again.',410);
     const product = await this.product(productId);
     const count = await this.one('SELECT COUNT(*) AS count FROM app_scan_items WHERE session_id=?', [sessionId]);
     const existing = await this.q('SELECT product_id FROM app_scan_items WHERE session_id=? AND product_id=?', [sessionId, productId]);
     check(count.count < 500 || existing.length, 'The pairing queue is full.');
     await this.q('INSERT INTO app_scan_items(session_id,product_id,scanned_by) VALUES (?,?,?) ON DUPLICATE KEY UPDATE scanned_by=VALUES(scanned_by)', [sessionId, productId, user]);
-    return { success: true, product };
+    await this.q('INSERT INTO app_scan_deliveries(session_id,product_id) VALUES (?,?) ON DUPLICATE KEY UPDATE version=version+1',[sessionId,productId]);const delivery=await this.one('SELECT version FROM app_scan_deliveries WHERE session_id=? AND product_id=?',[sessionId,productId]);
+    return { success: true, product,delivery_version:Number(delivery.version) };
+  }
+  async acknowledgeDeliveries(sessionId,input,user){
+    await this.ownedPair(sessionId,user);check(Array.isArray(input.items)&&input.items.length<=500,'Invalid delivery acknowledgements.');
+    for(const item of input.items){check(typeof item.product_id==='string'&&Number.isInteger(item.version)&&item.version>=0,'Invalid delivery version.');await this.q('UPDATE app_scan_deliveries SET acknowledged=GREATEST(acknowledged,LEAST(version,?)) WHERE session_id=? AND product_id=?',[item.version,sessionId,item.product_id]);}
+    return {success:true};
+  }
+  async deliveryStatus(sessionId,input){
+    const active=await this.q('SELECT id FROM app_scan_sessions WHERE id=? AND mobile_hash=? AND expires_at>NOW()',[sessionId,hash(text(input,'mobile',100))]);check(active.length,'Phone pairing expired or was ended. Pair again on the computer.',410);
+    const delivery=await this.one('SELECT version,acknowledged FROM app_scan_deliveries WHERE session_id=? AND product_id=?',[sessionId,text(input,'product',36)]);check(Number.isInteger(input.version)&&input.version>0,'Invalid delivery version.');return {received:Number(delivery.acknowledged)>=input.version,version:Number(delivery.version)};
   }
   async endPair(sessionId, user) { await this.ownedPair(sessionId, user); await this.q('DELETE FROM app_scan_sessions WHERE id=?', [sessionId]); await this.audit(user, 'pair.end', sessionId); return { success: true }; }
   async snapshot(input) {
