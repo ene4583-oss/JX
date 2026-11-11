@@ -30,3 +30,7 @@
 .sync-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px max(5vw,20px);border-bottom:1px solid var(--line);background:#edf3e6;font-size:13px}.sync-bar span{flex:1;min-width:200px}.sync-bar button{font-size:12px;padding:6px 9px}.sync-error{color:#963e2d}
 
 .sync-bar span{overflow-wrap:anywhere}
+
+.qr-input-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}.qr-input-options input{max-width:100%}.connected-device{display:flex;gap:10px;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;padding:12px;margin:8px 0;background:white}.connected-device span{flex:1;min-width:160px}.connected-device small{color:var(--muted)}#sync-devices-summary{display:flex;gap:6px;flex-wrap:wrap}#sync-devices-summary:empty{display:none}#sync-devices-summary span{font-size:12px;border-radius:12px;padding:3px 8px;min-width:0;overflow-wrap:anywhere}.device-online{background:#d7edce;color:#205d4e}.device-away{background:#eee1ce;color:#785b30}@media(max-width:640px){.qr-input-options{grid-template-columns:1fr}.qr-input-options input{min-width:0}#sync-devices-summary{width:100%}}
+
+.connected-device strong{max-width:100%;overflow-wrap:anywhere}#scanner-account{overflow-wrap:anywhere}

@@ -63,7 +63,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.05.2', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.11.1', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -115,13 +115,14 @@ async function apiApp(pool, config) {
   route('get', '/api/products/:id/qr', (s, r) => s.qr(r.params.id));
   route('get', '/api/products/:id/history', (s, r) => s.history(r.params.id));
   route('get', '/api/pairs', (s, r) => s.activePairs(r.user.id));
-  route('post', '/api/pairs', (s, r) => s.createPair(r.user.id), true);
+  route('post', '/api/pairs', (s, r) => s.createPair(r.user.id,r.body), true);
   route('get', '/api/pairs/:id', (s, r) => s.pairStatus(r.params.id, r.user.id));
   route('delete', '/api/pairs/:id', (s, r) => s.endPair(r.params.id, r.user.id), true);
-  route('post', '/api/pairs/:id/accept', (s, r) => s.acceptPair(r.params.id, text(r.body, 'pair', 100), r.user.id), true);
+  route('post', '/api/pairs/:id/accept', (s, r) => s.acceptPair(r.params.id, text(r.body, 'pair', 100), r.user.id,r.body), true);
   route('post', '/api/pairs/:id/items', (s, r) => s.send(r.params.id, text(r.body, 'mobile', 100), text(r.body, 'product', 36), r.user.id), true);
+  route('post','/api/pairs/:id/heartbeat',(s,r)=>require('./pair-devices').heartbeat(s,r.params.id,r.body,r.user.id),true);
   route('post','/api/pairs/:id/ack',(s,r)=>s.acknowledgeDeliveries(r.params.id,r.body,r.user.id),true);
-  route('post','/api/pairs/:id/delivery-status',(s,r)=>s.deliveryStatus(r.params.id,r.body));
+  route('post','/api/pairs/:id/delivery-status',(s,r)=>s.deliveryStatus(r.params.id,r.body,r.user.id));
   app.post('/api/jobs/preview', asyncCall(async (req, res) => fileResponse(res, await service.preview(req.body), 'preview.pdf')));
   app.post('/api/jobs/list-preview', asyncCall(async (req, res) => fileResponse(res, await service.previewList(req.body), 'list-preview.pdf')));
   app.get('/api/jobs/:id/list.pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobList(req.params.id), 'stamping-list.pdf')));

@@ -102,3 +102,9 @@ CREATE TABLE IF NOT EXISTS app_scan_deliveries (
  PRIMARY KEY(session_id,product_id),
  FOREIGN KEY(session_id,product_id) REFERENCES app_scan_items(session_id,product_id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_pair_devices (
+ session_id VARCHAR(36) PRIMARY KEY,
+ desktop_name VARCHAR(80) NOT NULL DEFAULT 'Computer', mobile_name VARCHAR(80) NOT NULL DEFAULT 'Phone',
+ mobile_user_id VARCHAR(36) NULL, desktop_seen_at DATETIME(3) NULL, mobile_seen_at DATETIME(3) NULL,
+ FOREIGN KEY(session_id) REFERENCES app_scan_sessions(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

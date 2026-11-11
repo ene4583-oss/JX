@@ -129,32 +129,36 @@ class Service {
     const product = await this.product(productId), link = this.publicUrl + '/#product=' + productId;
     return { product, link, image: await QRCode.toDataURL(link, { width: 350, margin: 2 }) };
   }
-  async activePairs(user) { return this.q('SELECT id,created_at,expires_at,(mobile_hash IS NOT NULL) AS paired FROM app_scan_sessions WHERE owner_id=? AND expires_at>NOW() ORDER BY created_at DESC', [user]); }
-  async createPair(user) {
+  async activePairs(user) { return this.q('SELECT s.id,s.created_at,s.expires_at,(s.mobile_hash IS NOT NULL) AS paired,d.desktop_name,d.mobile_name FROM app_scan_sessions s LEFT JOIN app_pair_devices d ON d.session_id=s.id WHERE s.owner_id=? AND s.expires_at>NOW() ORDER BY s.created_at DESC', [user]); }
+  async createPair(user,input={}) {
     await this.q('DELETE FROM app_scan_sessions WHERE expires_at<CURRENT_TIMESTAMP');
     const count = await this.one('SELECT COUNT(*) AS count FROM app_scan_sessions WHERE owner_id=?', [user]);
     check(count.count < 5, 'At most 5 pairings are allowed. End an old session first.');
     const sessionId = id(), pair = require('node:crypto').randomBytes(32).toString('hex');
-    await this.q('INSERT INTO app_scan_sessions(id,owner_id,pair_hash,pair_expires,expires_at) VALUES (?,?,?,DATE_ADD(NOW(),INTERVAL 5 MINUTE),DATE_ADD(NOW(),INTERVAL 12 HOUR))', [sessionId, user, hash(pair)]);
+    await this.q('INSERT INTO app_scan_sessions(id,owner_id,pair_hash,pair_expires,expires_at) VALUES (?,?,?,DATE_ADD(NOW(),INTERVAL 5 MINUTE),DATE_ADD(NOW(),INTERVAL 30 DAY))', [sessionId, user, hash(pair)]);
+    await require('./pair-devices').desktop(this,sessionId,input);
     const link = this.publicUrl + '/#session=' + sessionId + '&pair=' + pair;
     await this.audit(user, 'pair.create', sessionId);
     return { id: sessionId, link, image: await QRCode.toDataURL(link, { width: 280, margin: 2 }) };
   }
-  async acceptPair(sessionId, pair, user) {
+  async acceptPair(sessionId, pair, user,input={}) {
     const mobile = require('node:crypto').randomBytes(32).toString('hex');
     const result = await this.q('UPDATE app_scan_sessions SET pair_hash=NULL,mobile_hash=? WHERE id=? AND pair_hash=? AND pair_expires>NOW() AND expires_at>NOW()', [hash(mobile), sessionId, hash(pair)]);
     check(result.affectedRows === 1, 'Pairing code expired or was used. Create a new one on the computer.');
-    await this.audit(user, 'pair.accept', sessionId);
-    const row=await this.one('SELECT expires_at FROM app_scan_sessions WHERE id=?',[sessionId]);return { id: sessionId, mobile,expires_at:String(row.expires_at).replace(' ','T')+'Z' };
+    await this.q('UPDATE app_scan_sessions SET expires_at=DATE_ADD(NOW(),INTERVAL 30 DAY) WHERE id=?',[sessionId]);
+    await require('./pair-devices').phone(this,sessionId,input,user);await this.audit(user, 'pair.accept', sessionId);
+    const row=await this.one('SELECT UNIX_TIMESTAMP(expires_at)*1000 AS expires_ms FROM app_scan_sessions WHERE id=?',[sessionId]);return { id: sessionId, mobile,devices:await require('./pair-devices').devices(this,sessionId),expires_at:new Date(Number(row.expires_ms)).toISOString() };
   }
-  async ownedPair(sessionId, user) { return this.one('SELECT * FROM app_scan_sessions WHERE id=? AND owner_id=? AND expires_at>NOW()', [sessionId, user]); }
+  async ownedPair(sessionId, user) { return this.one('SELECT *,UNIX_TIMESTAMP(expires_at)*1000 AS expires_ms FROM app_scan_sessions WHERE id=? AND owner_id=? AND expires_at>NOW()', [sessionId, user]); }
   async pairStatus(sessionId, user) {
     const pair = await this.ownedPair(sessionId, user);
+    await this.q('UPDATE app_pair_devices SET desktop_seen_at=UTC_TIMESTAMP(3) WHERE session_id=?',[sessionId]);
     const rows = await this.q(productSql.replace('SELECT p.*,','SELECT p.*,COALESCE(delivery.version,0) AS delivery_version,COALESCE(delivery.acknowledged,0) AS delivery_acknowledged,') + 'JOIN app_scan_items i ON i.product_id=p.id LEFT JOIN app_scan_deliveries delivery ON delivery.session_id=i.session_id AND delivery.product_id=i.product_id WHERE i.session_id=? ORDER BY i.scanned_at,p.id', [sessionId]);
-    return { id:pair.id,expires_at:String(pair.expires_at).replace(' ','T')+'Z',paired: !!pair.mobile_hash, items: rows.map(row => this.hydrate(row)) };
+    return { id:pair.id,expires_at:new Date(Number(pair.expires_ms)).toISOString(),paired: !!pair.mobile_hash,devices:await require('./pair-devices').devices(this,sessionId), items: rows.map(row => this.hydrate(row)) };
   }
   async send(sessionId, mobile, productId, user) {
     const active=await this.q('SELECT id FROM app_scan_sessions WHERE id=? AND mobile_hash=? AND expires_at>NOW() FOR UPDATE',[sessionId,hash(mobile)]);check(active.length,'Phone pairing expired or was ended. Create a new pairing QR on the computer and scan it again.',410);
+    await require('./pair-devices').verifyPhone(this,sessionId,mobile,user);await this.q('UPDATE app_pair_devices SET mobile_seen_at=UTC_TIMESTAMP(3) WHERE session_id=?',[sessionId]);
     const product = await this.product(productId);
     const count = await this.one('SELECT COUNT(*) AS count FROM app_scan_items WHERE session_id=?', [sessionId]);
     const existing = await this.q('SELECT product_id FROM app_scan_items WHERE session_id=? AND product_id=?', [sessionId, productId]);
@@ -168,8 +172,9 @@ class Service {
     for(const item of input.items){check(typeof item.product_id==='string'&&Number.isInteger(item.version)&&item.version>=0,'Invalid delivery version.');await this.q('UPDATE app_scan_deliveries SET acknowledged=GREATEST(acknowledged,LEAST(version,?)) WHERE session_id=? AND product_id=?',[item.version,sessionId,item.product_id]);}
     return {success:true};
   }
-  async deliveryStatus(sessionId,input){
+  async deliveryStatus(sessionId,input,user){
     const active=await this.q('SELECT id FROM app_scan_sessions WHERE id=? AND mobile_hash=? AND expires_at>NOW()',[sessionId,hash(text(input,'mobile',100))]);check(active.length,'Phone pairing expired or was ended. Pair again on the computer.',410);
+    await require('./pair-devices').verifyPhone(this,sessionId,text(input,'mobile',100),user);
     const delivery=await this.one('SELECT version,acknowledged FROM app_scan_deliveries WHERE session_id=? AND product_id=?',[sessionId,text(input,'product',36)]);check(Number.isInteger(input.version)&&input.version>0,'Invalid delivery version.');return {received:Number(delivery.acknowledged)>=input.version,version:Number(delivery.version)};
   }
   async endPair(sessionId, user) { await this.ownedPair(sessionId, user); await this.q('DELETE FROM app_scan_sessions WHERE id=?', [sessionId]); await this.audit(user, 'pair.end', sessionId); return { success: true }; }
