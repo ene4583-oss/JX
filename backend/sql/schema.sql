@@ -108,3 +108,15 @@ CREATE TABLE IF NOT EXISTS app_pair_devices (
  mobile_user_id VARCHAR(36) NULL, desktop_seen_at DATETIME(3) NULL, mobile_seen_at DATETIME(3) NULL,
  FOREIGN KEY(session_id) REFERENCES app_scan_sessions(id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_pair_queue_events (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ session_id VARCHAR(36) NOT NULL, source VARCHAR(8) NOT NULL,
+ request_id VARCHAR(36) NOT NULL, action VARCHAR(8) NOT NULL, product_ids JSON NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY request_once(session_id,source,request_id), KEY queue_order(session_id,id),
+ FOREIGN KEY(session_id) REFERENCES app_scan_sessions(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_pair_queue_receipts (
+ session_id VARCHAR(36) NOT NULL, role VARCHAR(8) NOT NULL, through_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+ PRIMARY KEY(session_id,role), FOREIGN KEY(session_id) REFERENCES app_scan_sessions(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
