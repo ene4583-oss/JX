@@ -41,6 +41,7 @@ test('MySQL: authenticated employee workflow, persistent sessions, import and se
   const cfg = config(); assert.match(cfg.dbName, /^[A-Za-z0-9_]+_test$/, 'Use an isolated *_test database only');
   const pool = await connect(cfg); t.after(() => pool.end()); const service = new Service(pool, cfg.publicUrl);
   const { server, base } = await start(await createApp(cfg, pool)); t.after(() => new Promise(resolve => server.close(resolve)));
+  const phoneAsset=await fetch(base+'/mobile-scan.js');assert.equal(phoneAsset.status,200);assert.match(phoneAsset.headers.get('content-type'),/javascript/);
   const admin = client(base), employee = client(base);
   assert.equal((await admin.request('/api/products')).status, 401); await admin.login();
   const username = 'staff_' + crypto.randomUUID().slice(0, 8);

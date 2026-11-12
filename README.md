@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.18**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.19**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -283,3 +283,9 @@ Complete Record displays dates as **DD/MM/YYYY** and retains Edit/PDF actions wh
 Shared-device actions are now saved in a per-group, per-member browser outbox before sending. Transient failures retry automatically in order, including after a refresh, using the same request ID to prevent duplicate server actions after a lost response. Pending actions are sent before restoring the shared workspace. A queue update received while a field has focus is rendered after leaving the field, preserving the local draft. Complete events also refresh another member's open Complete Record view. Returning online or focusing the website resumes polling.
 
 The top device banner stays hidden. Management shows the connection status and group identifier; devices must belong to the same group to share the workspace (up to five devices). Keep the server running and refresh all connected browsers after updating. Existing group connections remain valid; different browsers or site addresses use separate browser storage and need their own pairing.
+
+## Wide product entry and phone scan-only UI (2026.11.12.19)
+
+Add Product uses a wide desktop dialog with customer fields on the left and product fields on the right. Compact grids keep the full form visible on standard desktop screens; smaller screens retain normal scrolling as needed instead of clipping fields.
+
+Phones/tablets identified by the browser user agent show **Scan & Add to Print**. Staff can scan the computer's pairing QR, scan product QR codes, read product details and add to the shared Print Queue. There are no visible add/edit, queue completion, export or management controls. Opening desktop section links on the phone returns to the scanner page, and scanning a product does not open its edit form. Add to Print requires a connected group. Computers retain all existing functions. Existing photo/file and HTTPS live scanning, login sessions and shared delivery retries remain available. This is a simplified device interface; account permissions remain the existing server permissions.
