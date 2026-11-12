@@ -69,6 +69,13 @@ async function generate(snapshot, customTemplates = {}) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(values.last_date || '')) values.last_date = displayDate(values.last_date);
     const spec = custom?.layout || layouts[`${product.company}/${product.product_type}`];
     for (const [field, rect] of Object.entries(spec.fields)) {
+      if(field==='counterpoise_weights'){
+        const raw=String(values[field]??'').replace(/[\x00-\x09\x0b-\x1f\x7f]/g,' ').replace(/\r/g,'').replace(/\n+$/,''),rows=raw.split('\n');
+        check(rows.length<=6||!raw.trim(),'Nilai Berat Kaunterpois: maksimum 6 baris. Semak nilai sebelum mencetak.');
+        const [x,top,width,height]=rect,offsets=[0,13,27,46,64,85];
+        for(let i=0;i<Math.min(6,rows.length);i++)if(rows[i].trim())drawText(page,font,supported,field,rows[i].trim(),[x,top+offsets[i]*height/93,width,Math.max(10,height/8)],undefined,spec.baseline_size,spec.font_sizes?.[field]);
+        continue;
+      }
       let value = String(values[field] ?? '').replace(/[\x00-\x09\x0b-\x1f\x7f]/g, ' ').trim();
       if (field === 'owner' && rect[3] < 30) value = value.replace(/\n/g, ', ');
       if (value) drawText(page, font, supported, field, value, rect, field==='owner'?spec.owner_line_height:undefined,spec.font_sizes?.[field]||spec.baseline_size,spec.font_sizes?.[field]);

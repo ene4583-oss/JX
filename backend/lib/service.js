@@ -112,7 +112,7 @@ class Service {
     check(formats.valid(company, type), 'Choose DE / MCM and a valid product type.'); check(brand, 'Enter the brand.');
     const identity = serial ? hash([customer, normalized(brand), normalized(model), normalized(serial)].join('\n')) : null;
     check(input.details == null || typeof input.details === 'object' && !Array.isArray(input.details), 'Invalid product details.');
-    const details = Object.fromEntries(Object.keys(formats.details).map(key => [key, text(input.details || {}, key, key === 'notes' ? 1000 : 200)]));
+    const details = Object.fromEntries(Object.keys(formats.details).map(key => [key, require('./counterpoise').detailText(input.details || {}, key, key === 'notes' ? 1000 : 200)]));
     if (details.last_date) date(details.last_date);
     const productId = existing || id();
     if (!existing) {
@@ -193,7 +193,7 @@ class Service {
       const override = input.product_overrides?.[productId];
       if (override) {
         for (const key of ['name','address','area','phone','brand','model','serial_no','product_type']) if(Object.hasOwn(override,key))p[key]=text(override,key,key==='address'?2000:255);
-        if (override.details) for(const key of Object.keys(formats.details)) if(Object.hasOwn(override.details,key))p.details[key]=text(override.details,key,key==='notes'?1000:200);
+        if (override.details) for(const key of Object.keys(formats.details)) if(Object.hasOwn(override.details,key))p.details[key]=require('./counterpoise').detailText(override.details,key,key==='notes'?1000:200);
         check(p.name.trim(), 'Enter the customer name.');
       }
       if(input.workflow_mode){p.details.old_reg=currentRegistration;p.details.last_reg=currentRegistration;p.details.new_reg=p.details.new_reg||currentRegistration;}

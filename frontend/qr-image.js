@@ -29,8 +29,8 @@ window.decodeQRImage=async function(file,{signal,onProgress=()=>{}}={}){
   worker=new Worker('/qr-worker.js');
   const decode=(pixels,w,h)=>new Promise((resolve,reject)=>{const onAbort=()=>reject(new DOMException('Scan cancelled','AbortError'));signal?.addEventListener('abort',onAbort,{once:true});const finish=(fn,v)=>{clearTimeout(timer);signal?.removeEventListener('abort',onAbort);fn(v);};timer=setTimeout(()=>finish(reject,Error('Image reading timed out. Crop around the QR and try again.')),15000);worker.onmessage=e=>e.data.error?finish(reject,Error(e.data.error)):finish(resolve,e.data.value);worker.onerror=()=>finish(reject,Error('QR reader could not start. Refresh this page and retry.'));worker.postMessage({pixels:pixels.buffer,width:w,height:h},[pixels.buffer]);});
   // Whole image at several scales, then overlapping crops for a small label in a large photo.
-  const views=[[0,0,width,height,2200],[0,0,width,height,1400],[0,0,width,height,850]];
-  for(const [x,y] of [[0,0],[.5,0],[0,.5],[.5,.5],[.25,.25]])views.push([x*width,y*height,width*.5,height*.5,1600]);
+  const views=[[0,0,width,height,2200],[0,0,width,height,1400],[0,0,width,height,850],[0,0,width,height,3000]];
+  for(const [x,y] of [[0,0],[.25,0],[.5,0],[0,.25],[.25,.25],[.5,.25],[0,.5],[.25,.5],[.5,.5]])views.push([x*width,y*height,width*.5,height*.5,1600]);
   const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
   let detector;try{if(window.BarcodeDetector)detector=new BarcodeDetector({formats:['qr_code']});}catch{}
   for(let i=0;i<views.length;i++){
@@ -39,6 +39,6 @@ window.decodeQRImage=async function(file,{signal,onProgress=()=>{}}={}){
    if(detector)try{const found=await detector.detect(canvas);if(found[0]?.rawValue){cancelled();return found[0].rawValue;}}catch{}
    const result=await decode(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);cancelled();if(result)return result;
   }
-  throw Error('No readable QR found. Crop close to the whole QR, include its white border, avoid blur/glare and try again.');
+  throw Error('No readable QR found. Keep the whole code visible, move closer if needed, and avoid blur or glare. No on-screen frame alignment is required.');
  }finally{clearTimeout(timer);worker?.terminate();bitmap?.close();if(url)URL.revokeObjectURL(url);signal?.removeEventListener('abort',abort);}
 };
