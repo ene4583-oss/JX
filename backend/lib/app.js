@@ -38,7 +38,7 @@ function harden(app, config) {
 }
 function staticFiles(app) {
   app.get(['/', '/index.html'], (req, res) => res.sendFile(path.join(frontend, 'index.html')));
-  for (const file of ['app.js', 'app.css','workflow.js','templates.js','qr-image.js','qr-worker.js','queue-sync.js','tiff-worker.js','atn-options.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
+  for (const file of ['app.js', 'app.css','workflow.js','templates.js','qr-image.js','qr-worker.js','queue-sync.js','tiff-worker.js','atn-options.js','form-fields.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
   for(const resource of ['cmaps','standard_fonts','wasm'])app.use('/vendor/pdfjs/'+resource,express.static(path.join(__dirname,'../node_modules/pdfjs-dist',resource),{dotfiles:'deny'}));
   app.use('/vendor/pdfjs',express.static(path.join(__dirname,'../node_modules/pdfjs-dist/build'),{dotfiles:'deny'}));
   app.get('/vendor/heic-worker.js',(req,res)=>{res.set('Content-Security-Policy',"default-src 'none'; script-src 'self' 'unsafe-eval'; connect-src 'none'");res.sendFile(path.join(frontend,'vendor/heic-worker.js'));});
@@ -65,7 +65,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.12.1', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.12.2', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -99,7 +99,7 @@ async function apiApp(pool, config) {
   const route = (method, url, fn, transaction = false) => app[method](url, asyncCall(async (req, res) => res.json(await (transaction ? service.transaction(s => fn(s, req)) : fn(service, req)))));
   const fileResponse = (res, bytes, name) => res.type('pdf').set('Content-Disposition', `inline; filename="${name}"`).set('Cache-Control', 'no-store').send(bytes);
   route('get', '/api/network',()=>({phone_url:service.publicUrl,addresses:network.lanUrls(config.port),local_only:new URL(service.publicUrl).hostname==='localhost',outstation_ready:service.publicUrl.startsWith('https://')}));
-  route('get', '/api/formats', () => ({ companies: formats.companies, types: formats.types, details: formats.details }));
+  route('get', '/api/formats', () => ({ companies: formats.companies, types: formats.types, details: formats.details, form_fields:formats.formFields, form_options:formats.formOptions }));
   route('get', '/api/customers', (s, r) => s.customers(String(r.query.q || '')));
   route('get','/api/customers/deleted',(s,r)=>s.deletedCustomers(String(r.query.q||''),r.user));
   route('get','/api/customers/:id/deletion-info',(s,r)=>s.customerDeletionInfo(r.params.id,r.user));

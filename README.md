@@ -169,3 +169,11 @@ Local vendor libraries: jsQR 1.4.0 (Apache-2.0), heic2any 0.0.4 (MIT), UTIF 3.1.
 DE and MCM ATN products now show small selectable reference illustrations for **Instrument type** (Pedestal / Suspended) and **Tray type** (Bowl / Flat), in both product entry/editing and the Print Queue edit dialog. The illustrations come from the supplied MCM ATN form. Click either the picture or its label; a selected card is highlighted. Each field also allows Not entered. The product form shows these fields only for ATN. Previously saved unrecognized values remain selectable so editing does not silently erase them.
 
 Stored values remain `Pedestal` / `Suspended` and `Mangkuk` / `Rata`, matching the existing DE/MCM PDF checkbox mappings. Product saves retain the selection; editing a queue row applies it to that form until Save & Update. Existing database tables need no changes. The compact 64px illustrations fit mobile and desktop screens.
+
+## Malay form entry (2026.11.12.2)
+
+Staff product/customer entry, per-product print editing and print settings use Malay labels matching the DE/MCM forms: Jenama, Nama Pembuat, Had Terima, Senggatan, Kegunaan Alat and Penentusahan Terakhir. ATN picture choices remain available as Jenis Alat and Bentuk Dulang. SLL uses Nilai Jangkaan and Kategori Alat, and SLL/ATL show their Malay inspection questions with Ya/Tidak answers.
+
+Kegunaan Alat is a radio choice of Perdagangan, Bukan Perdagangan or Tidak diisi. Only form types with that field show it. All nine types expose their relevant form fields when adding/editing a product; the field/checkbox lists come from the existing PDF layouts. Material/shape/indicator choices follow the options in that type's form. Other fields remain editable, and unrecognized previously saved option values remain selectable. Hidden fields are disabled for submission, while existing details are preserved when editing another type.
+
+These are display and input changes. SQL field names, stored option values, original PDFs and the 2025 Excel import/export column headings are unchanged. No database migration is required. Restart the backend and refresh both browsers after updating.
