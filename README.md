@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.10**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.11**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -241,3 +241,7 @@ Update by retaining `backend/.env`, restarting the website, and refreshing every
 Fixed the undefined `reg` reference that prevented existing products from opening after scanning or choosing a search match. Products & Scan provides **Clear scanned list** and a per-row **×**. These remove only the shared scanned/entered list entries; database products and Print Queue items remain. Clear actions synchronize to connected devices and remain cleared after reconnecting.
 
 Print Queue and Complete Record use compact tables again on desktop: one product per row, all columns visible with wrapping, and actions at the end. Narrow phone screens retain a readable vertical layout without horizontal dragging.
+
+## List counts and selection (2026.11.12.11)
+
+Print type buttons show the total products for that type, or selected/total when rows are deselected. Products & Scan uses the same compact sizing as Print Queue. Products & Scan and Complete Record now have leading row checkboxes and a header checkbox to select/deselect the displayed rows; queue checkboxes continue controlling printing/completion. The top device status banner is hidden, while device management and background synchronization remain available.
