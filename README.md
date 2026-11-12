@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.15**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.16**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -265,3 +265,7 @@ Selecting a name/registration match in Add Product fills only shared customer de
 ## Keep both matching actions (2026.11.12.15)
 
 Selecting an existing product match again loads all its details for editing the same product/QR. Each product match also has a separate **Customer only** button, which selects shared customer details for a new product without copying the old product. When switching from an existing product to Customer only, the form becomes a new-product form. Customer-only matches and Save customer only remain available.
+
+## Dedicated customer-first product entry (2026.11.12.16)
+
+**Add new customer** in the Add Product customer section starts a blank new-product form with customer-only matching. Type part of a customer name or address in the name field: the list shows customer name, address and phone without product data. Selecting a customer fills shared customer fields; enter the new product details below and save to create a new product for that customer. With no match, enter the new customer details manually. Normal Add Product matching, product editing, QR scanning and Save customer only remain available.

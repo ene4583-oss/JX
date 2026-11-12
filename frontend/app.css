@@ -57,3 +57,5 @@
 .work-table th input[type=checkbox],.work-table td[data-label=Select] input[type=checkbox]{margin:0;width:14px;height:14px}
 
 .customer-match-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;margin:5px 0}.customer-match-row .customer-match-result{width:100%;margin:0}.customer-match-row>button{min-width:0}.customer-match-row>[data-customer-only-key]{font-size:12px;padding:8px;white-space:normal;max-width:105px}@media(max-width:640px){.customer-match-row{grid-template-columns:minmax(0,1fr)}.customer-match-row>[data-customer-only-key]{max-width:none;justify-self:end}}
+
+.customer-only-matches .customer-match-head,.customer-only-matches .customer-match-result{grid-template-columns:1fr 1.8fr 1fr}.customer-only-matches .customer-match-result{width:100%;margin:5px 0;text-align:left}
