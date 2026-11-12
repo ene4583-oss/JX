@@ -1,5 +1,4 @@
 'use strict';
-const bcrypt = require('bcryptjs');
 const QRCode = require('qrcode');
 const { check, text, id, hash, normalized, decode, date, HttpError } = require('./util');
 const formats = require('./formats');
@@ -9,6 +8,7 @@ class Service {
   constructor(db, publicUrl) { this.db = db; this.publicUrl = publicUrl; }
   async q(sql, args = []) { return (await this.db.query(sql, args))[0]; }
   async one(sql, args = []) { const rows = await this.q(sql, args); check(rows.length, 'Record not found.', 404); return rows[0]; }
+  async productsByIds(ids){const products=[];for(let i=0;i<ids.length;i+=500){const batch=ids.slice(i,i+500);if(batch.length)products.push(...(await this.q(productSql+'WHERE p.id IN ('+batch.map(()=>'?').join(',')+')',batch)).map(row=>this.hydrate(row)));}return products;}
   async audit(user, action, entity) { await this.q('INSERT INTO app_audit(user_id,action,entity_id) VALUES (?,?,?)', [user, action, entity]); }
   async transaction(action) {
     const conn = await this.db.getConnection();
@@ -238,7 +238,7 @@ class Service {
     const rows=jobId?[await this.job(jobId)]:await this.q('SELECT title,snapshot FROM app_jobs'+f.where+' ORDER BY stamping_date,created_at',f.args);
     const records=rows.flatMap(row=>{const snap=typeof row.snapshot==='object'&&row.snapshot.products?row.snapshot:decode(row.snapshot);return snap.products.map((p,index)=>({p,settings:snap.settings,index}));});
     check(records.length<=200000,'More than 200,000 records. Export individual forms.');
-    return require('./export').records(records);
+    return require('./export').records(records,{completed:true});
   }
   async jobs() { return this.q("SELECT j.id,j.title,j.stamping_date,j.created_at,j.created_by,u.username,JSON_LENGTH(JSON_EXTRACT(j.snapshot,'$.products')) AS count FROM app_jobs j JOIN app_users u ON u.id=j.created_by ORDER BY j.created_at DESC LIMIT 200"); }
   async jobPdf(jobId) { return (await this.one('SELECT pdf FROM app_jobs WHERE id=?', [jobId])).pdf; }
@@ -251,19 +251,19 @@ class Service {
   async users() { return (await this.q('SELECT id,username,role,active,created_at FROM app_users ORDER BY username')).map(row => ({ ...row, active: !!row.active })); }
   async saveUser(existing, input, actor) {
     const username = text(input, 'username', 80), role = text(input, 'role', 16);
-    check(/^[A-Za-z0-9_.@-]{3,80}$/.test(username), 'Username must contain 3–80 letters, numbers or _.@-');
+    check(username.length>0,'Enter a username.');
     check(['ADMIN', 'EMPLOYEE'].includes(role), 'Invalid role.');
     const password = input.password ?? ''; check(typeof password === 'string', 'Invalid password format.');
-    if (!existing || password) check(password.length >= 8 && Buffer.byteLength(password) <= 72, 'Password must have at least 8 characters and at most 72 bytes.');
+    if (!existing || password) check(password.length>0,'Enter a password.');
     const userId = existing || id();
-    if (!existing) await this.q('INSERT INTO app_users(id,username,password_hash,role) VALUES (?,?,?,?)', [userId, username, '{bcrypt}' + await bcrypt.hash(password, 12), role]);
+    if (!existing) await this.q('INSERT INTO app_users(id,username,password_hash,role) VALUES (?,?,?,?)', [userId, username, await require('./passwords').encode(password), role]);
     else {
       await this.one('SELECT id FROM app_users WHERE id=?', [userId]);
       const admins = await this.q("SELECT id FROM app_users WHERE role='ADMIN' AND active=TRUE FOR UPDATE");
       const active = input.active !== false;
       if (admins.some(row => row.id === userId) && (!active || role !== 'ADMIN')) check(admins.length > 1, 'Keep at least one active administrator.');
       await this.q('UPDATE app_users SET username=?,role=?,active=? WHERE id=?', [username, role, active, userId]);
-      if (password) await this.q('UPDATE app_users SET password_hash=? WHERE id=?', ['{bcrypt}' + await bcrypt.hash(password, 12), userId]);
+      if (password) await this.q('UPDATE app_users SET password_hash=? WHERE id=?', [await require('./passwords').encode(password), userId]);
     }
     await this.audit(actor, 'user.save', userId); return { success: true };
   }

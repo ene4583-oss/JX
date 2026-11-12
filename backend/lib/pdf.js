@@ -56,12 +56,13 @@ async function generate(snapshot, customTemplates = {}) {
   const font = await output.embedFont(fontBytes, { subset: false });
   const supported = new Set(font.getCharacterSet());
   const sources = { DE: await PDFDocument.load(deBytes), MCM: await PDFDocument.load(mcmBytes) };
+  const pageCounts={};
   for (const product of snapshot.products) {
     check(formats.valid(product.company, product.product_type), 'Product form type needs confirmation.');
     const custom=customTemplates[`${product.company}/${product.product_type}`];
     const background=custom?.background?await PDFDocument.load(custom.background):sources[product.company];
     const indices=custom?.background?background.getPageIndices():[formats.types.indexOf(product.product_type)];
-    const pages=await output.copyPages(background,indices);for(const item of pages)output.addPage(item);const page=pages[0];
+    pageCounts[product.id]=indices.length;const pages=await output.copyPages(background,indices);for(const item of pages)output.addPage(item);const page=pages[0];
     const d = product.details;
     const values = { ...d, name:product.name,address:product.address,area:product.area,phone:product.phone, brand: product.brand, model: product.model, serial_no: product.serial_no,
       date: displayDate(snapshot.settings.stamping_date), owner: [product.name, product.address, product.area].filter(Boolean).join('\n'),
@@ -92,6 +93,7 @@ async function generate(snapshot, customTemplates = {}) {
     }
   }
   output.setTitle('Jian Xu — Stamping forms');
+  snapshot.settings.page_counts=pageCounts;
   return Buffer.from(await output.save());
 }
 async function generateList(snapshot) {

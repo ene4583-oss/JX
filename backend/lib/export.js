@@ -1,13 +1,14 @@
  'use strict';
 const Excel=require('exceljs');
 const {headers}=require('./import');
-async function records(records){
+async function records(records,{completed=false}={}){
+ const columns=completed?headers.filter(key=>key!=='No. Daftar Lama').map(key=>key==='No. Daftar Baru'?'No. Pendaftaran':key):headers;
  const book=new Excel.Workbook();book.creator='Jian Xu';const sheet=book.addWorksheet('Records');
- sheet.addRow(headers);sheet.getRow(1).font={bold:true};sheet.views=[{state:'frozen',ySplit:1}];sheet.autoFilter={from:'A1',to:'R1'};
+ sheet.addRow(columns);sheet.getRow(1).font={bold:true};sheet.views=[{state:'frozen',ySplit:1}];sheet.autoFilter={from:'A1',to:(completed?'Q1':'R1')};
  for(const {p,settings,index}of records){const d=p.details||{},entry=settings.list_entries?.[p.id]||{};
-  const row={'Date':settings.stamping_date||d.source_date||'','Name':p.name,'Address':p.address,'Area':p.area,'Type':p.product_type,'Baru/Lama':d.condition==='Baru'?'B':d.condition==='Lama'?'L':'','Brand':p.brand,'Model':p.model,'S/No':p.serial_no,'Capacity':d.capacity,'No. Daftar Lama':d.old_reg,'No. Daftar Baru':d.new_reg,'Shop/Out':d.shop_out||'','Stamping Fee':entry.stamping_fee||d.stamping_fee||'','Phone No.':p.phone||'','No. Bill':settings.bill_no||'','Total Price':index===0?settings.total_price||'':'','Caw':settings.branch||''};
-  sheet.addRow(headers.map(key=>['Stamping Fee','Total Price'].includes(key)&&/^\d+(?:\.\d{1,2})?$/.test(String(row[key]??''))?Number(row[key]):String(row[key]??'')));
-  const saved=sheet.lastRow;for(const column of [14,17])saved.getCell(column).numFmt='0.00';
+  const row={'Date':settings.stamping_date||d.source_date||'','Name':p.name,'Address':p.address,'Area':p.area,'Type':p.product_type,'Baru/Lama':d.condition==='Baru'?'B':d.condition==='Lama'?'L':'','Brand':p.brand,'Model':p.model,'S/No':p.serial_no,'Capacity':d.capacity,'No. Daftar Lama':d.old_reg,'No. Daftar Baru':d.new_reg,'No. Pendaftaran':d.new_reg||d.old_reg,'Shop/Out':d.shop_out||'','Stamping Fee':entry.stamping_fee||d.stamping_fee||'','Phone No.':p.phone||'','No. Bill':settings.bill_no||'','Total Price':index===0?settings.total_price||'':'','Caw':settings.branch||''};
+  sheet.addRow(columns.map(key=>['Stamping Fee','Total Price'].includes(key)&&/^\d+(?:\.\d{1,2})?$/.test(String(row[key]??''))?Number(row[key]):String(row[key]??'')));
+  const saved=sheet.lastRow;for(const title of ['Stamping Fee','Total Price'])saved.getCell(columns.indexOf(title)+1).numFmt='0.00';
  }
  sheet.columns.forEach((column,i)=>column.width=i===2?45:i===1?30:19);
  return Buffer.from(await book.xlsx.writeBuffer());

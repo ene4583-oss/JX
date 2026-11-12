@@ -6,7 +6,7 @@ const limits = require('./import-limits');
 const headers = ['Date', 'Name', 'Address', 'Area', 'Type', 'Baru/Lama', 'Brand', 'Model', 'S/No', 'Capacity', 'No. Daftar Lama', 'No. Daftar Baru', 'Shop/Out', 'Stamping Fee', 'Phone No.', 'No. Bill', 'Total Price', 'Caw'];
 const mappingVersion=6;
 function headerKey(value){return String(value).trim().toLowerCase().replace(/[\s._/()-]/g,'');}
-const aliases={'型号':'Model','型號':'Model','modelno':'Model','modelnumber':'Model','phonenumber':'Phone No.','phone':'Phone No.','telno':'Phone No.','telephone':'Phone No.','stampingfees':'Stamping Fee','serialno':'S/No','serialnumber':'S/No'};
+const aliases={'nopendaftaran':'No. Daftar Lama','nodaftar':'No. Daftar Lama','型号':'Model','型號':'Model','modelno':'Model','modelnumber':'Model','phonenumber':'Phone No.','phone':'Phone No.','telno':'Phone No.','telephone':'Phone No.','stampingfees':'Stamping Fee','serialno':'S/No','serialnumber':'S/No'};
 function condition(value){const v=String(value).trim().toUpperCase();return ['B','BARU','NEW'].includes(v)?'Baru':['L','LAMA','OLD'].includes(v)?'Lama':'';}
 function checkZip(buffer) {
   check(buffer.length > 0 && buffer.length <= limits.maxFileBytes, 'Excel files must be at most 30MB.');

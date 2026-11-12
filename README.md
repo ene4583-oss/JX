@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.10.15.7**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.9**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -221,3 +221,17 @@ Add Product has no separate Cari search line. Typing into **Nama Tuan Punya** au
 Scan QR prioritizes **Take photo & read QR**, opening the phone's native rear-camera capture where supported. Upload and explicit Live scan are alternatives; camera permission is no longer requested automatically. Photo decoding now has a ZXing 0.21.3 fallback in addition to jsQR, trying normal/inverted luminance and two thresholding methods. Both run locally in the image worker. The Apache-2.0 license is included in frontend/vendor. A successfully decoded QR pointing to a deleted/nonexistent product now explicitly explains that new labels are needed after clearing/re-importing records. Live camera still requires HTTPS (or localhost); ordinary LAN HTTP supports native camera photos and files. Recognition depends on image clarity and the code being intact.
 
 Print Queue and Complete Record wrap all columns without horizontal table dragging. Smaller viewports use fully expanded labelled rows. Queue checkboxes remain first; Edit/QR/Remove actions are last. Completed-record PDF/list/edit/delete actions are directly visible in the last column. Editable registration fields grow vertically rather than hiding text in a small scrolling input. There is no change to saved PDF backgrounds or record contents.
+
+## Shared devices and individual completed records (2026.11.12.9)
+
+Connected Devices supports five devices total, including the creator. Create one pairing QR and scan it on the other devices within five minutes. Each device has its own row and × control: the group creator can remove other devices, and other members can disconnect themselves. For this update, create a new pairing QR and reconnect devices; existing product QR labels remain valid. Scanned, selected and manually added products accumulate in a shared list. Adding/removing Print Queue items synchronizes in both directions, while merely scanning does not queue a product. A disconnected device catches up when it reconnects.
+
+Staff Accounts accepts short usernames and passwords, including one character; passwords remain hashed. The first-use administrator setup and local recovery utility retain their existing policies.
+
+Queue and completed-record fields use wider labelled layouts that wrap to fit the screen. Customer matching results float directly below the name field. **Complete** replaces **Save & Update**. The queue's New Reg field starts blank: completing without a new number keeps the current registration; entering a new number updates the live product for subsequent visits.
+
+Completed-record Excel exports use one **No. Pendaftaran** column with the completed registration (falling back to the old number). Product-library exports keep their existing columns. The completed workbook can also be imported again.
+
+Each Complete Record row has its own **Edit** and **Delete** buttons. These affect only that historical record and do not overwrite the live product. Editing one item from a saved batch splits it into its own saved form, retaining the other items and their original PDF pages. Concurrent corrections are rejected when the underlying record changed. Deleting a completed record keeps the live product.
+
+Update by retaining `backend/.env`, restarting the website, and refreshing every connected browser. Additional device tables are created automatically; no data reset is required.

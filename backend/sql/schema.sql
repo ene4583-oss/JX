@@ -120,3 +120,36 @@ CREATE TABLE IF NOT EXISTS app_pair_queue_receipts (
  session_id VARCHAR(36) NOT NULL, role VARCHAR(8) NOT NULL, through_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
  PRIMARY KEY(session_id,role), FOREIGN KEY(session_id) REFERENCES app_scan_sessions(id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_device_groups (
+ id VARCHAR(36) PRIMARY KEY, owner_id VARCHAR(36) NOT NULL,
+ invite_hash CHAR(64) NULL, invite_expires DATETIME NOT NULL,
+ expires_at DATETIME NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_group_members (
+ id VARCHAR(36) PRIMARY KEY, group_id VARCHAR(36) NOT NULL, user_id VARCHAR(36) NOT NULL,
+ client_id VARCHAR(36) NOT NULL, token_hash CHAR(64) NOT NULL,
+ name VARCHAR(80) NOT NULL, role VARCHAR(8) NOT NULL, seen_at DATETIME(3) NOT NULL,
+ through_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+ UNIQUE KEY group_client(group_id,client_id),
+ FOREIGN KEY(group_id) REFERENCES app_device_groups(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_group_events (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ group_id VARCHAR(36) NOT NULL, member_id VARCHAR(36) NOT NULL,
+ request_id VARCHAR(36) NOT NULL, kind VARCHAR(16) NOT NULL, product_ids JSON NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY group_request(group_id,member_id,request_id), KEY group_order(group_id,id),
+ FOREIGN KEY(group_id) REFERENCES app_device_groups(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_group_products (
+ group_id VARCHAR(36) NOT NULL, product_id VARCHAR(36) NOT NULL,
+ PRIMARY KEY(group_id,product_id),
+ FOREIGN KEY(group_id) REFERENCES app_device_groups(id) ON DELETE CASCADE,
+ FOREIGN KEY(product_id) REFERENCES app_products(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_group_queue (
+ group_id VARCHAR(36) NOT NULL, product_id VARCHAR(36) NOT NULL,
+ PRIMARY KEY(group_id,product_id),
+ FOREIGN KEY(group_id) REFERENCES app_device_groups(id) ON DELETE CASCADE,
+ FOREIGN KEY(product_id) REFERENCES app_products(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

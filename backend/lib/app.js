@@ -3,7 +3,6 @@ const express = require('express');
 const session = require('express-session');
 const helmet = require('helmet');
 const multer = require('multer');
-const bcrypt = require('bcryptjs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
@@ -38,7 +37,7 @@ function harden(app, config) {
 }
 function staticFiles(app) {
   app.get(['/', '/index.html'], (req, res) => res.sendFile(path.join(frontend, 'index.html')));
-  for (const file of ['app.js', 'app.css','workflow.js','templates.js','qr-image.js','qr-worker.js','queue-sync.js','tiff-worker.js','atn-options.js','form-fields.js','customer-entry.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
+  for (const file of ['app.js', 'app.css','workflow.js','templates.js','qr-image.js','qr-worker.js','queue-sync.js','tiff-worker.js','atn-options.js','form-fields.js','customer-entry.js','group-sync.js','record-editor.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
   for(const resource of ['cmaps','standard_fonts','wasm'])app.use('/vendor/pdfjs/'+resource,express.static(path.join(__dirname,'../node_modules/pdfjs-dist',resource),{dotfiles:'deny'}));
   app.use('/vendor/pdfjs',express.static(path.join(__dirname,'../node_modules/pdfjs-dist/build'),{dotfiles:'deny'}));
   app.get('/vendor/heic-worker.js',(req,res)=>{res.set('Content-Security-Policy',"default-src 'none'; script-src 'self' 'unsafe-eval'; connect-src 'none'");res.sendFile(path.join(frontend,'vendor/heic-worker.js'));});
@@ -65,7 +64,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.12.8', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.12.9', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -81,12 +80,11 @@ async function apiApp(pool, config) {
     let attempt = attempts.get(key); if (!attempt || now - attempt.start > 900000) { attempt = { start: now, count: 0 }; attempts.set(key, attempt); }
     check(++attempt.count <= 40, 'Too many login attempts. Try again in 15 minutes.', 429);
     const username = text(req.body, 'username', 80), password = req.body.password;
-    check(typeof password === 'string' && password.length <= 200, 'Incorrect username or password.', 401);
+    check(typeof password === 'string', 'Incorrect username or password.', 401);
     const users = await service.q('SELECT * FROM app_users WHERE username=?', [username]); const user = users[0];
     const stored = String(user?.password_hash || '');
-    const encoded = stored.startsWith('{bcrypt}') ? stored.slice(8) : stored;
     // Always perform a bcrypt comparison, including for an unknown username.
-    const ok = await bcrypt.compare(password, encoded.startsWith('$2') ? encoded : '$2b$12$QhNt6bEd2Skv4Lp7tV7ySOrBN0KD5ClY8VHtCQOpmkCE1aQh2Z0fG');
+    const ok = await require('./passwords').verify(password,stored);
     check(user && user.active && ok, 'Incorrect username or password.', 401);
     await regenerate(req); req.session.csrf = crypto.randomBytes(32).toString('hex'); req.session.userId = user.id; req.session.version = hash(stored);
     const remember=[true,'true','on','1'].includes(req.body.remember_me),ttl=remember?REMEMBER_SESSION_MS:SHORT_SESSION_MS;
@@ -117,6 +115,8 @@ async function apiApp(pool, config) {
   route('put', '/api/products/:id', (s, r) => s.saveProduct(r.params.id, r.body, r.user.id), true);
   route('get', '/api/products/:id/qr', (s, r) => s.qr(r.params.id));
   route('get', '/api/products/:id/history', (s, r) => s.history(r.params.id));
+  route('post','/api/device-groups',(s,r)=>require('./device-groups').create(s,r.body,r.user.id),true);
+  for(const method of ['invite','join','sync','publish','receipt','remove'])route('post','/api/device-groups/:id/'+method,(s,r)=>require('./device-groups')[method](s,r.params.id,r.body,r.user.id),true);
   route('get', '/api/pairs', (s, r) => s.activePairs(r.user.id));
   route('post', '/api/pairs', (s, r) => s.createPair(r.user.id,r.body), true);
   route('get', '/api/pairs/:id', (s, r) => s.pairStatus(r.params.id, r.user.id));
@@ -136,6 +136,7 @@ async function apiApp(pool, config) {
   route('get', '/api/jobs', s => s.jobs());
   const excelResponse=(res,bytes,name='2025-format-records.xlsx')=>res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').set('Cache-Control','no-store').attachment(name).send(bytes);
   app.get('/api/library/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportProducts())));
+  for(const [method,action] of [['get','get'],['put','edit'],['delete','remove']])route(method,'/api/records/:job/:product',(s,r)=>require('./saved-records')[action](s,r.params.job,r.params.product,...(action==='get'?[r.user]:[r.body,r.user])),true);
   route('get','/api/records/summary',s=>s.recordSummary());
   app.get('/api/records/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(null,req.query),'JX-Saved-Records.xlsx')));
   app.get('/api/jobs/:id/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(req.params.id))));
