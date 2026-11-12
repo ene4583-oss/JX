@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.9**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.10**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -235,3 +235,9 @@ Completed-record Excel exports use one **No. Pendaftaran** column with the compl
 Each Complete Record row has its own **Edit** and **Delete** buttons. These affect only that historical record and do not overwrite the live product. Editing one item from a saved batch splits it into its own saved form, retaining the other items and their original PDF pages. Concurrent corrections are rejected when the underlying record changed. Deleting a completed record keeps the live product.
 
 Update by retaining `backend/.env`, restarting the website, and refreshing every connected browser. Additional device tables are created automatically; no data reset is required.
+
+## Scan error, clear list and compact tables (2026.11.12.10)
+
+Fixed the undefined `reg` reference that prevented existing products from opening after scanning or choosing a search match. Products & Scan provides **Clear scanned list** and a per-row **×**. These remove only the shared scanned/entered list entries; database products and Print Queue items remain. Clear actions synchronize to connected devices and remain cleared after reconnecting.
+
+Print Queue and Complete Record use compact tables again on desktop: one product per row, all columns visible with wrapping, and actions at the end. Narrow phone screens retain a readable vertical layout without horizontal dragging.

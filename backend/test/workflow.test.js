@@ -53,6 +53,11 @@ test('MySQL workflow: five device members share seen products and queue with ind
  await call('remove',owner.id,{...access(owner),device_id:peers[0].member_id});await assert.rejects(call('sync',owner.id,{...access(peers[0]),snapshot:true}),e=>e.status===410);const replacement=await call('join',owner.id,{invite,client_id:crypto.randomUUID(),device_name:'Replacement',role:'phone'});assert.equal((await call('sync',owner.id,{...access(replacement),snapshot:true})).products.length,2);assert.equal((await call('sync',owner.id,{...access(owner),snapshot:true})).devices.length,5);
  await call('remove',owner.id,{...access(owner),device_id:owner.member_id});await assert.rejects(call('sync',owner.id,{...access(owner),snapshot:true}),e=>e.status===410);assert.equal((await call('sync',owner.id,{...access(replacement),snapshot:true})).devices.length,4);
  await service.q('UPDATE app_device_groups SET invite_expires=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 SECOND) WHERE id=?',[owner.id]);await assert.rejects(call('join',owner.id,{invite,client_id:crypto.randomUUID(),role:'phone'}),e=>e.status===410);
+ const kept=(await call('sync',owner.id,{...access(replacement),snapshot:true})).products.map(p=>p.id);
+ await call('publish',owner.id,{...access(replacement),kind:'queue_add',product_ids:[kept[0]],request_id:crypto.randomUUID()});
+ const removed=await call('publish',owner.id,{...access(replacement),kind:'seen_remove',product_ids:kept,request_id:crypto.randomUUID()});
+ const clean=await call('sync',owner.id,{...access(replacement),snapshot:true});assert.deepEqual(clean.products,[]);assert.deepEqual(clean.queue_ids,[kept[0]]);assert.equal(clean.queue_products[0].id,kept[0]);assert.equal((await req('/products/'+kept[0])).status,200);
+ assert.ok((await call('sync',owner.id,{...access(replacement),after:removed.event_id-1})).events.some(e=>e.kind==='seen_remove'));
  const cleared=await req('/admin/records/clear','POST',{confirm:'CLEAR_ALL_RECORDS'});assert.equal(cleared.status,200);for(const table of ['app_device_groups','app_group_members','app_group_events','app_group_products','app_group_queue'])assert.equal(Number((await service.one('SELECT COUNT(*) AS n FROM '+table)).n),0,table);
 });
 
