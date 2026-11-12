@@ -46,3 +46,10 @@ test('a rejected product does not block later valid shared actions',async()=>{
  await assert.rejects(app.run("sendGroupEvent('queue_add',['deleted'])"),/Product removed/);
  await app.run("sendGroupEvent('seen',['valid'])");assert.deepEqual(delivered,['seen']);assert.equal(app.run('groupOutbox(activeDeviceGroup()).length'),0);
 });
+test('shared customer updates refresh related products while preserving unsaved corrections',()=>{
+ const app=runtime();app.context.recentProducts=new Map([['one',{customer_id:'customer',name:'Old'}],['two',{customer_id:'customer',name:'Old'}]]);
+ app.context.selected=new Map([['one',{customer_id:'customer',name:'Old',customer_version:1}],['two',{customer_id:'customer',name:'Draft',customer_version:1}]]);
+ app.context.productOverrides=new Map([['two',{name:'Draft'}]]);app.context.chosenFormCustomer={id:'customer',version:1};
+ app.run("refreshSharedCustomerCaches({customer_id:'customer',name:'New',address:'New road',area:'RAUB',phone:'0123',customer_version:2})");
+ assert.equal(app.context.recentProducts.get('two').name,'New');assert.equal(app.context.selected.get('one').customer_version,2);assert.equal(app.context.selected.get('two').name,'Draft');assert.equal(app.context.selected.get('two').customer_version,1);assert.equal(app.context.chosenFormCustomer.version,1);
+});

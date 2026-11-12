@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.19**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.20**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -289,3 +289,7 @@ The top device banner stays hidden. Management shows the connection status and g
 Add Product uses a wide desktop dialog with customer fields on the left and product fields on the right. Compact grids keep the full form visible on standard desktop screens; smaller screens retain normal scrolling as needed instead of clipping fields.
 
 Phones/tablets identified by the browser user agent show **Scan & Add to Print**. Staff can scan the computer's pairing QR, scan product QR codes, read product details and add to the shared Print Queue. There are no visible add/edit, queue completion, export or management controls. Opening desktop section links on the phone returns to the scanner page, and scanning a product does not open its edit form. Add to Print requires a connected group. Computers retain all existing functions. Existing photo/file and HTTPS live scanning, login sessions and shared delivery retries remain available. This is a simplified device interface; account permissions remain the existing server permissions.
+
+## Phone product correction and queue review (2026.11.12.20)
+
+Phones now show Products & Scan and Print Queue. Both lists provide Edit product, which loads the current live product for correction and saves through the normal shared customer/product workflow. Queue rows also allow Remove from queue. Saving on a phone does not open the QR reprint dialog. Complete, PDF printing, export, new-product entry and management remain computer operations. Scanning, queue changes and saved product corrections synchronize within the connected group.
