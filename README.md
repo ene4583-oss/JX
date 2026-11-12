@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.12**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.13**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -251,3 +251,9 @@ Print type buttons show the total products for that type, or selected/total when
 After successful **Complete**, only the completed products leave both Print Queue and the current Products & Scan list, including connected devices. Unselected products remain. This does not delete the live product or completed record; searching/scanning it again retrieves the latest details. Failed completion and historical corrections do not clear the scan list.
 
 The bulk **Clear scanned list** button has been removed. Per-row × remains available for an accidental scan.
+
+## Automatic dates and customer-only entry (2026.11.12.13)
+
+Changing either Complete Record date immediately filters the list and updates the Excel export link, without a Filter button. Date changes reset pagination; older requests cannot replace newer results.
+
+In Add Product, **Save customer only** sits beside **Enter new customer**. It saves the name, phone, address and area without requiring product fields or creating a product/QR. The saved customer remains selected, so a product can be added immediately or later by searching the customer name. Saving an already selected customer updates that customer's shared details.
