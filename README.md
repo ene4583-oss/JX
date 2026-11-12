@@ -163,3 +163,9 @@ Both paired screens now send **Add to Print** and explicit queue removals to a s
 Update the backend and refresh **both** browsers. Existing valid pairings can be reused. Both devices must use the same running server/database; keep both websites open for immediate receipt. The phone layout switches rows to labelled cards below 760px, fits dialogs within the viewport, and uses readable 16px form fields.
 
 Local vendor libraries: jsQR 1.4.0 (Apache-2.0), heic2any 0.0.4 (MIT), UTIF 3.1.0 (MIT) and pako 1.0.11 (MIT/Zlib). Licenses are included in `frontend/vendor`. The heic2any embedded worker is extracted to `heic-worker.js`; its converter's dynamic code is permitted only by that worker response's CSP. Page scripts retain the strict CSP without `unsafe-eval`.
+
+## ATN picture choices (2026.11.12.1)
+
+DE and MCM ATN products now show small selectable reference illustrations for **Instrument type** (Pedestal / Suspended) and **Tray type** (Bowl / Flat), in both product entry/editing and the Print Queue edit dialog. The illustrations come from the supplied MCM ATN form. Click either the picture or its label; a selected card is highlighted. Each field also allows Not entered. The product form shows these fields only for ATN. Previously saved unrecognized values remain selectable so editing does not silently erase them.
+
+Stored values remain `Pedestal` / `Suspended` and `Mangkuk` / `Rata`, matching the existing DE/MCM PDF checkbox mappings. Product saves retain the selection; editing a queue row applies it to that form until Save & Update. Existing database tables need no changes. The compact 64px illustrations fit mobile and desktop screens.
