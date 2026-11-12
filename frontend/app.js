@@ -155,8 +155,8 @@ $('bulk-qr-clear').onclick=()=>{bulkQrSelected.clear();bulkQrCount();run(bulkQrP
 $('bulk-qr-print').onclick=()=>run(async()=>{const button=$('bulk-qr-print');if(bulkQrBusy)return;bulkQrBusy=true;button.disabled=true;try{const blob=await api('/qr/labels.pdf',{method:'POST',body:{product_ids:[...bulkQrSelected.keys()]},blob:true});if(bulkQrPdfUrl)URL.revokeObjectURL(bulkQrPdfUrl);bulkQrPdfUrl=URL.createObjectURL(blob);const link=$('bulk-qr-pdf');link.href=bulkQrPdfUrl;link.hidden=false;link.click();message('QR labels generated. Print the PDF at 100% / Actual size.');}finally{bulkQrBusy=false;bulkQrCount();}});
 
 function liveSearch(input,search,delay=250){let timer;const schedule=event=>{clearTimeout(timer);if(event?.isComposing)return;timer=setTimeout(()=>run(search),delay);};input.addEventListener('input',schedule);input.addEventListener('compositionend',schedule);input.addEventListener('searchclear',()=>{clearTimeout(timer);run(search);});input.form?.addEventListener('submit',()=>clearTimeout(timer));}
-liveSearch($('product-search').elements.q,async()=>{const term=$('product-search').elements.q.value.trim();query=term;lookupProduct=null;page=0;try{await products();}finally{if($('product-search').elements.q.value.trim()===term)$('product-list').setAttribute('aria-busy','false');}},150);
-$('product-search').elements.q.addEventListener('input',event=>{productSearchRequest++;if(!event.isComposing){$('product-list').setAttribute('aria-busy','true');$('page-status').textContent='Filtering matching products…';}});
+liveSearch($('product-search').elements.q,async()=>{query=$('product-search').elements.q.value.trim();lookupProduct=null;page=0;await products();});
+$('product-search').elements.q.addEventListener('input',()=>productSearchRequest++);
 liveSearch($('bulk-qr-search').elements.q,async()=>{bulkQrQuery=$('bulk-qr-search').elements.q.value.trim();bulkQrPage=0;await bulkQrProducts();});
 $('bulk-qr-search').elements.q.addEventListener('input',()=>bulkQrRequest++);
 let customerLookupRequest=0;

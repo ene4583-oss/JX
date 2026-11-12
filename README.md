@@ -183,3 +183,9 @@ These are display and input changes. SQL field names, stored option values, orig
 Products & Scan and Print Queue use English headings, actions, table columns, print settings and status messages. Entry dialogs also have English instructions/actions, while their actual form field labels and choices remain Malay, including Jenama, Kegunaan Alat and the ATN picture choices. PDF form backgrounds and stored data remain unchanged.
 
 The Products & Scan search filters automatically after a short pause while typing part of a customer name, registration, address, brand or model; no Search button is needed. A filtering indicator and inline hint explain the behavior. Older responses cannot replace newer queries, and clearing the input restores the products added in this session. Enter remains supported, and other search inputs keep their existing behavior.
+
+## Customer matching correction (2026.11.12.4)
+
+The requested automatic matching is in **Add Product → Customers**, not the main Products & Scan filter. Typing part of a customer name or registration now shows clickable customer/product matches directly below that input. Find and the collapsed results select are hidden; selecting a customer fills shared details for a new product, while selecting a product loads its existing record. Results refresh after a short typing pause, older requests are ignored, clearing X removes matches, and no-match feedback leaves manual entry available. Up to 12 matches are shown, with customer choices kept visible alongside product matches.
+
+Products & Scan and Print Queue wording/layout are restored to the prior Malay-form release. Only the **Print Queue** Shop / Out column uses English; the product-list equivalent keeps Kedai / Luar. Form fields, ATN pictures, stored records and PDF backgrounds remain unchanged. This supersedes the broader workspace language change in 2026.11.12.3.
