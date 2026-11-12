@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.13**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.14**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -257,3 +257,7 @@ The bulk **Clear scanned list** button has been removed. Per-row × remains avai
 Changing either Complete Record date immediately filters the list and updates the Excel export link, without a Filter button. Date changes reset pagination; older requests cannot replace newer results.
 
 In Add Product, **Save customer only** sits beside **Enter new customer**. It saves the name, phone, address and area without requiring product fields or creating a product/QR. The saved customer remains selected, so a product can be added immediately or later by searching the customer name. Saving an already selected customer updates that customer's shared details.
+
+## Reuse a customer without copying their product (2026.11.12.14)
+
+Selecting a name/registration match in Add Product fills only shared customer details (name, address, phone and area). It does not load the matched product, its ID, registration or instrument details, or add it to the scan list/queue. Enter and save the new product to link it to that customer. Existing products can still be edited from their row or opened by scanning their QR.
