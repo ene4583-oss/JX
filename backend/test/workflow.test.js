@@ -58,6 +58,9 @@ test('MySQL workflow: five device members share seen products and queue with ind
  const removed=await call('publish',owner.id,{...access(replacement),kind:'seen_remove',product_ids:kept,request_id:crypto.randomUUID()});
  const clean=await call('sync',owner.id,{...access(replacement),snapshot:true});assert.deepEqual(clean.products,[]);assert.deepEqual(clean.queue_ids,[kept[0]]);assert.equal(clean.queue_products[0].id,kept[0]);assert.equal((await req('/products/'+kept[0])).status,200);
  assert.ok((await call('sync',owner.id,{...access(replacement),after:removed.event_id-1})).events.some(e=>e.kind==='seen_remove'));
+ await call('publish',owner.id,{...access(replacement),kind:'seen',product_ids:kept,request_id:crypto.randomUUID()});
+ await call('publish',owner.id,{...access(replacement),kind:'queue_complete',product_ids:[kept[0]],request_id:crypto.randomUUID()});
+ const completed=await call('sync',owner.id,{...access(replacement),snapshot:true});assert.deepEqual(completed.queue_ids,[]);assert.deepEqual(completed.products.map(p=>p.id),kept.slice(1));assert.equal((await req('/products/'+kept[0])).status,200);
  const cleared=await req('/admin/records/clear','POST',{confirm:'CLEAR_ALL_RECORDS'});assert.equal(cleared.status,200);for(const table of ['app_device_groups','app_group_members','app_group_events','app_group_products','app_group_queue'])assert.equal(Number((await service.one('SELECT COUNT(*) AS n FROM '+table)).n),0,table);
 });
 

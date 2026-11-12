@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.11**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.12**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -245,3 +245,9 @@ Print Queue and Complete Record use compact tables again on desktop: one product
 ## List counts and selection (2026.11.12.11)
 
 Print type buttons show the total products for that type, or selected/total when rows are deselected. Products & Scan uses the same compact sizing as Print Queue. Products & Scan and Complete Record now have leading row checkboxes and a header checkbox to select/deselect the displayed rows; queue checkboxes continue controlling printing/completion. The top device status banner is hidden, while device management and background synchronization remain available.
+
+## Remove completed products from the active list (2026.11.12.12)
+
+After successful **Complete**, only the completed products leave both Print Queue and the current Products & Scan list, including connected devices. Unselected products remain. This does not delete the live product or completed record; searching/scanning it again retrieves the latest details. Failed completion and historical corrections do not clear the scan list.
+
+The bulk **Clear scanned list** button has been removed. Per-row × remains available for an accidental scan.
