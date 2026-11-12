@@ -177,3 +177,9 @@ Staff product/customer entry, per-product print editing and print settings use M
 Kegunaan Alat is a radio choice of Perdagangan, Bukan Perdagangan or Tidak diisi. Only form types with that field show it. All nine types expose their relevant form fields when adding/editing a product; the field/checkbox lists come from the existing PDF layouts. Material/shape/indicator choices follow the options in that type's form. Other fields remain editable, and unrecognized previously saved option values remain selectable. Hidden fields are disabled for submission, while existing details are preserved when editing another type.
 
 These are display and input changes. SQL field names, stored option values, original PDFs and the 2025 Excel import/export column headings are unchanged. No database migration is required. Restart the backend and refresh both browsers after updating.
+
+## English workspace and live filtering (2026.11.12.3)
+
+Products & Scan and Print Queue use English headings, actions, table columns, print settings and status messages. Entry dialogs also have English instructions/actions, while their actual form field labels and choices remain Malay, including Jenama, Kegunaan Alat and the ATN picture choices. PDF form backgrounds and stored data remain unchanged.
+
+The Products & Scan search filters automatically after a short pause while typing part of a customer name, registration, address, brand or model; no Search button is needed. A filtering indicator and inline hint explain the behavior. Older responses cannot replace newer queries, and clearing the input restores the products added in this session. Enter remains supported, and other search inputs keep their existing behavior.
