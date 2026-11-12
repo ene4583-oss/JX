@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.14**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.15**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -261,3 +261,7 @@ In Add Product, **Save customer only** sits beside **Enter new customer**. It sa
 ## Reuse a customer without copying their product (2026.11.12.14)
 
 Selecting a name/registration match in Add Product fills only shared customer details (name, address, phone and area). It does not load the matched product, its ID, registration or instrument details, or add it to the scan list/queue. Enter and save the new product to link it to that customer. Existing products can still be edited from their row or opened by scanning their QR.
+
+## Keep both matching actions (2026.11.12.15)
+
+Selecting an existing product match again loads all its details for editing the same product/QR. Each product match also has a separate **Customer only** button, which selects shared customer details for a new product without copying the old product. When switching from an existing product to Customer only, the form becomes a new-product form. Customer-only matches and Save customer only remain available.
