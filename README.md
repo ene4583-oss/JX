@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.16**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.17**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -269,3 +269,7 @@ Selecting an existing product match again loads all its details for editing the 
 ## Dedicated customer-first product entry (2026.11.12.16)
 
 **Add new customer** in the Add Product customer section starts a blank new-product form with customer-only matching. Type part of a customer name or address in the name field: the list shows customer name, address and phone without product data. Selecting a customer fills shared customer fields; enter the new product details below and save to create a new product for that customer. With no match, enter the new customer details manually. Normal Add Product matching, product editing, QR scanning and Save customer only remain available.
+
+## Simplified entry buttons (2026.11.12.17)
+
+Removed the customer section's Enter new customer / Save customer only buttons. The dedicated **Add new customer** entry is now beside Add Product on Products & Scan. It opens customer-only name/address matching followed by blank new-product fields. The original Add Product behavior remains separate.

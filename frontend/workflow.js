@@ -21,7 +21,7 @@ $('lookup-customer-button').onclick=()=>run(lookupCustomers);liveSearch($('looku
 let nameTimer;const customerNameInput=$('product-form').elements.customer_name;
 function scheduleNameMatches(event){clearTimeout(nameTimer);formMatchRequest++;$('customer-live-matches').hidden=true;if(!customerNameInput.value.trim()){clearFormMatches();return;}if(event?.isComposing)return;nameTimer=setTimeout(()=>run(()=>formLookup(customerNameInput.value)),150);}
 customerNameInput.addEventListener('input',scheduleNameMatches);customerNameInput.addEventListener('compositionend',scheduleNameMatches);
-$('use-new-customer').onclick=()=>{editProduct(null);customerOnlyMode=true;customerNameInput.placeholder='Taip sebahagian nama atau alamat pelanggan';$('chosen-customer').textContent='Search by customer name or address, select a customer, then enter the new product below.';customerNameInput.focus();};
+$('new-customer').onclick=()=>{editProduct(null);customerOnlyMode=true;customerNameInput.placeholder='Taip sebahagian nama atau alamat pelanggan';$('chosen-customer').textContent='Search by customer name or address, select a customer, then enter the new product below.';customerNameInput.focus();};
 $('product-match-options').onchange=e=>chooseFormMatch(e.target.value);
 $('product-form').addEventListener('input',e=>{const input=e.target;if((input.tagName==='TEXTAREA'||input.tagName==='INPUT'&&['text',''].includes(input.type))&&!input.id.startsWith('lookup')&&!e.isComposing){const start=input.selectionStart,end=input.selectionEnd;input.value=input.value.toUpperCase();if(start!==null)input.setSelectionRange(start,end);}});
 $('product-form').onsubmit=async e=>{e.preventDefault();const button=e.submitter;button.disabled=true;try{const f=e.target,d=data(f),c={name:d.customer_name.toUpperCase(),address:d.customer_address.toUpperCase(),phone:d.customer_phone.toUpperCase(),area:d.customer_area.toUpperCase()};
@@ -60,16 +60,6 @@ function selectionHeader(wrap,set,ids){const table=wrap.querySelector('table'),h
 function refreshSelectionHeader(table,set){if(!table?._selectionIds)return;const ids=table._selectionIds,count=ids.filter(id=>set.has(id)).length,box=table.querySelector('th input');box.checked=!!ids.length&&count===ids.length;box.indeterminate=count>0&&count<ids.length;box.title=count+' / '+ids.length+' selected';}
 function printTypeLabel(type){const all=[...selected.values()].filter(p=>p.product_type===type),count=all.filter(p=>!excludedFromPrint.has(p.id)).length;return 'Print '+type+' ('+(count===all.length?all.length:count+'/'+all.length)+')';}
 function updatePrintTypeCounts(){const toolbar=$('print-list').querySelector('.toolbar');if(!toolbar)return;for(const button of toolbar.querySelectorAll('button')){const type=formats.types.find(type=>button.textContent.startsWith('Print '+type+' ('));if(type)button.textContent=printTypeLabel(type);}}
-
-$('save-customer-only').onclick=async()=>{
- const button=$('save-customer-only'),form=$('product-form');
- for(const name of ['customer_name','customer_phone','customer_address','customer_area'])if(!form.elements[name].reportValidity())return;
- button.disabled=true;
- try{const input=Object.fromEntries(['name','phone','address','area'].map(key=>[key,form.elements['customer_'+key].value.trim().toUpperCase()])),id=chosenFormCustomer?.id;
- const customer=await api('/customers'+(id?'/'+id:''),{method:id?'PUT':'POST',body:{...input,...(id?{version:chosenFormCustomer.version}:{})}});
- clearFormMatches();applyCustomerRecord(customer);chooseCustomer(customer);storeRecent();persist();printList();message('Customer saved without creating a product. You can add a product now or close this window.');
- }catch(error){message(error.message,true);}finally{button.disabled=false;}
-};
 
 async function lookupOnlyCustomers(term,request){
  const customers=await api('/customers?q='+encodeURIComponent(term),{timeout:8000});
