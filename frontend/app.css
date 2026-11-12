@@ -67,3 +67,5 @@
 .phone-scan-only:not(.phone-new-product) #customer-matching-results,.phone-scan-only #edit-shared-customer{display:none!important}
 
 .phone-scan-only #new-product{width:100%;min-height:48px}.phone-scan-only #products>.heading .toolbar{gap:8px}
+
+#scanner-help:empty,#scanner-account:empty,#qr-photo-status:empty,#mobile-sync-status:empty{display:none}
