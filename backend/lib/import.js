@@ -4,7 +4,7 @@ const { check, id, hash, normalized, decode } = require('./util');
 const formats = require('./formats');
 const limits = require('./import-limits');
 const headers = ['Date', 'Name', 'Address', 'Area', 'Type', 'Baru/Lama', 'Brand', 'Model', 'S/No', 'Capacity', 'No. Daftar Lama', 'No. Daftar Baru', 'Shop/Out', 'Stamping Fee', 'Phone No.', 'No. Bill', 'Total Price', 'Caw'];
-const mappingVersion=5;
+const mappingVersion=6;
 function headerKey(value){return String(value).trim().toLowerCase().replace(/[\s._/()-]/g,'');}
 const aliases={'型号':'Model','型號':'Model','modelno':'Model','modelnumber':'Model','phonenumber':'Phone No.','phone':'Phone No.','telno':'Phone No.','telephone':'Phone No.','stampingfees':'Stamping Fee','serialno':'S/No','serialnumber':'S/No'};
 function condition(value){const v=String(value).trim().toUpperCase();return ['B','BARU','NEW'].includes(v)?'Baru':['L','LAMA','OLD'].includes(v)?'Lama':'';}
@@ -69,7 +69,7 @@ async function commit(service, bytes, company, actor, {repairMissing=false,filen
     let existing=identity?await service.q('SELECT id,details,model FROM app_products WHERE identity_hash=?',[identity]):[];
     if(!existing.length&&prior.length)existing=await service.q('SELECT p.id,p.details,p.model FROM app_legacy_history h JOIN app_products p ON p.id=h.product_id WHERE h.source_hash=?',[hash(fileHash+':'+row._row)]);
     const details = Object.fromEntries(Object.keys(formats.details).map(field => [field, '']));
-    Object.assign(details, { shop_out:row['Shop/Out'], capacity: row.Capacity, old_reg: row['No. Daftar Lama'], new_reg: row['No. Daftar Baru'], condition: condition(row['Baru/Lama']), stamping_fee:row['Stamping Fee'], source_type: row.Type, source_date: row.Date });
+    Object.assign(details, { shop_out:require('./product-fields').shopOut(row['Shop/Out']), capacity: row.Capacity, old_reg: row['No. Daftar Baru']||row['No. Daftar Lama'], new_reg: '', condition: condition(row['Baru/Lama']), stamping_fee:row['Stamping Fee'], source_type: row.Type, source_date: row.Date });
     const assigned = company === 'AUTO' ? (row['No. Daftar Baru'] || row['No. Daftar Lama']).toUpperCase().startsWith('CRA') ? 'MCM' : 'DE' : company;
     let product;
     if (!existing.length) {
@@ -79,6 +79,7 @@ async function commit(service, bytes, company, actor, {repairMissing=false,filen
       product = existing[0].id; const previous = decode(existing[0].details);
       const latest=Object.hasOwn(previous,'source_date')&&row.Date>=(previous.source_date||'');
       const merged={...previous};for(const [key,value]of Object.entries(details)){if(key.startsWith('source_')&&!Object.hasOwn(previous,'source_date'))continue;if(value!==''&&(latest||merged[key]==null||merged[key]===''))merged[key]=value;}
+      if(Object.hasOwn(previous,'source_date')){if(latest)merged.old_reg=details.old_reg||previous.new_reg||previous.old_reg||'';else if(previous.new_reg)merged.old_reg=previous.new_reg;merged.new_reg='';}
       const restoredModel=latest?model:(existing[0].model||model),restoredIdentity=serial?hash([customer.id,normalized(brand),normalized(restoredModel),normalized(serial)].join('\n')):null;
       if(JSON.stringify(merged)!==JSON.stringify(previous)||restoredModel!==existing[0].model){await service.q('UPDATE app_products SET model=?,identity_hash=?,details=?,version=version+1 WHERE id=?',[restoredModel,restoredIdentity,JSON.stringify(merged),product]);updated++;}
 

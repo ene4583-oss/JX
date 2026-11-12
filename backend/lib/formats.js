@@ -2,7 +2,7 @@
 const companies = ['DE', 'MCM'];
 const types = ['ATN', 'ATS', 'ATP', 'ATE', 'SLL', 'SLC', 'ATL', 'BTU', 'ATP (M)'];
 const details = {
-  shop_out:'Kedai / Luar', stamping_fee:'Fi Penentusahan (Senarai Sahaja)', capacity:'Had Terima', manufacturer:'Nama Pembuat', interval:'Senggatan',
+  shop_out:'Shop/Out', stamping_fee:'Penentusahan fee', capacity:'Had Terima', manufacturer:'Nama Pembuat', interval:'Senggatan',
   new_reg:'No. Daftar Baru', old_reg:'No. Daftar Lama', last_reg:'No. Penentusahan Terakhir',
   last_date:'Tarikh Penentusahan Terakhir', last_branch:'Cawangan Penentusahan Terakhir', condition:'Keadaan Alat',
   usage:'Kegunaan Alat', instrument_kind:'Jenis Alat', tray:'Bentuk Dulang',

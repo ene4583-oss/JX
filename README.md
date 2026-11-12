@@ -201,3 +201,13 @@ Photo/file selection and the Take a photo shortcut are grouped in one full-width
 ## English interface, Malay form content (2026.11.12.6)
 
 Page/dialog headings, buttons, table columns and general operation messages use English. Actual form entry fields, choices, inspection questions and form-filling guidance remain Malay as requested. This supersedes the broader language changes documented above. Six counterpoise inputs, live customer matching, photo/file controls, full-view QR scanning, stored data and PDF backgrounds are preserved.
+
+## Product fields, import defaults and clean reset (2026.11.12.7)
+
+Add Product customer search now shows one unified row format: **Name → No. Daftar → Brand → Address**. Products use their latest available registration (new before old). A separate duplicate customer row is suppressed when matching products already represent that customer; customers without matching products still appear in the same format. No Customer: prefix is shown.
+
+Shop/Out offers S or O only; blank/unrecognized uploads default to O (legacy Shop/Kedai means S). The fee label is Penentusahan fee. These fields follow the other options at the bottom. Keadaan Alat uses Baru/Lama radio choices; Kegunaan Alat and ATN picture choices no longer have Tidak diisi. Senggatan sits beside Had Terima. Manufacturer, previous verification date/branch and internal notes are hidden/disabled in entry dialogs without deleting existing values.
+
+Product entry shows No. Daftar Lama; it is populated from new_reg when present, otherwise old_reg. New registration entry remains available in Print Queue completion/Complete Record editing. Excel imports map No. Daftar Baru, or No. Daftar Lama when Baru is blank, into the product's old_reg with imported new_reg blank. Reupload repairs older import mappings without duplicating products/history; manually edited and completed product state is protected. Existing saved form snapshots are unchanged. Import/export column names stay in the 2025 format.
+
+Administrators can use **Management → Excel Import → Start again with a clean record list → Clear all records**. After confirmation this transaction deletes customers, products, Excel uploads/history, Complete Record forms/PDFs and pairing queues, and clears the current browser's queue. Staff accounts, login sessions, logo, website settings, PDF backgrounds/layouts and audit history are retained. Failures roll back the deletion. Reimport is immediately available. **Old product QR labels stop working after a full clear and must be reprinted**; other open devices should refresh and pair again. The reset is never run automatically during update/startup. Tests exercise deletion only in isolated test databases.

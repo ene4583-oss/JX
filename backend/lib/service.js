@@ -114,6 +114,7 @@ class Service {
     check(input.details == null || typeof input.details === 'object' && !Array.isArray(input.details), 'Invalid product details.');
     const details = Object.fromEntries(Object.keys(formats.details).map(key => [key, require('./counterpoise').detailText(input.details || {}, key, key === 'notes' ? 1000 : 200)]));
     if (details.last_date) date(details.last_date);
+    details.shop_out=require('./product-fields').shopOut(details.shop_out);
     const productId = existing || id();
     if (!existing) {
       await this.q('INSERT INTO app_products(id,customer_id,company,product_type,brand,model,serial_no,identity_hash,details,created_by) VALUES (?,?,?,?,?,?,?,?,?,?)', [productId, customer, company, type, brand, model, serial, identity, JSON.stringify(details), user]);
@@ -196,6 +197,7 @@ class Service {
         if (override.details) for(const key of Object.keys(formats.details)) if(Object.hasOwn(override.details,key))p.details[key]=require('./counterpoise').detailText(override.details,key,key==='notes'?1000:200);
         check(p.name.trim(), 'Enter the customer name.');
       }
+      p.details.shop_out=require('./product-fields').shopOut(p.details.shop_out);
       if(input.workflow_mode){p.details.old_reg=currentRegistration;p.details.last_reg=currentRegistration;p.details.new_reg=p.details.new_reg||currentRegistration;}
       check(p.brand.trim(), 'Enter the product brand first.'); check(formats.types.includes(p.product_type), 'Confirm the product type before printing.');
       const entry = input.list_entries?.[productId] || {};

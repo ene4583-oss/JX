@@ -65,7 +65,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.12.6', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.12.7', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -145,6 +145,7 @@ async function apiApp(pool, config) {
   app.get('/api/templates/:company/:type',asyncCall(async(req,res)=>fileResponse(res,await require('./form-templates').background(service,req.params.company,req.params.type),'template.pdf')));
   const admin = (req, res, next) => { check(req.user.role === 'ADMIN', 'Administrator access is required.', 403); next(); };
   app.use(['/api/admin', '/api/import'], admin);
+  route('post','/api/admin/records/clear',(s,r)=>require('./reset-records').clear(s,r.body,r.user.id),true);
   app.put('/api/admin/network',asyncCall(async(req,res)=>{const next=configModule.validate({...config,publicUrl:text(req.body,'public_url',300)});check(next.publicUrl.startsWith('https://'),'Remote access URL must use HTTPS.');await service.q("INSERT INTO app_settings(setting_key,setting_value) VALUES('public_url',?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)",[next.publicUrl]);config.publicUrl=next.publicUrl;service.publicUrl=next.publicUrl;res.json({success:true,phone_url:service.publicUrl});}));
   const logoUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:2*1024*1024,files:1}}).single('file');
 
