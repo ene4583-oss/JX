@@ -54,7 +54,7 @@ async function customerMatches(q,request){const list=await api('/customers?q='+e
 async function editSharedCustomer(id){editCustomer(await api('/customers/'+encodeURIComponent(id)));}
 function editCustomer(c){$('customer-form').reset();fill($('customer-form'),c||{id:'',version:''});$('delete-customer').hidden=!c||auth.user.role!=='ADMIN';$('customer-dialog').showModal();}
 $('edit-shared-customer').onclick=()=>run(async()=>{const id=$('product-form').elements.customer_id.value;const c=await api('/customers/'+encodeURIComponent(id));$('product-dialog').close();editCustomer(c);});
-$('new-customer').onclick=()=>editCustomer(null);
+
 $('customer-form').onsubmit=e=>{e.preventDefault();run(async()=>{const d=data(e.target),c=await api('/customers'+(d.id?'/'+d.id:''),{method:d.id?'PUT':'POST',body:{...d,version:Number(d.version)}});const shared={name:c.name,address:c.address,area:c.area,phone:c.phone};for(const [id,p]of selected)if(p.customer_id===c.id){selected.set(id,{...p,...shared});if(productOverrides.has(id))productOverrides.set(id,{...productOverrides.get(id),...shared});}if(lookupProduct?.customer_id===c.id)lookupProduct={...lookupProduct,...shared};persist();requestId=newRequestId();$('customer-dialog').close();if(!d.id){lookupProduct=null;query=c.name.slice(0,100);$('product-search').elements.q.value=query;page=0;}await products();printList();message('Customer saved. Details are shared by all linked products.');});};
 function conditionCode(value){return ['B','BARU'].includes(String(value||'').toUpperCase())?'B':['L','LAMA'].includes(String(value||'').toUpperCase())?'L':'';}
 function queueAction(label,title,fn){const button=btn(label,fn);button.title=title;button.setAttribute('aria-label',title);return button;}

@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.17**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.18**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -273,3 +273,13 @@ Selecting an existing product match again loads all its details for editing the 
 ## Simplified entry buttons (2026.11.12.17)
 
 Removed the customer section's Enter new customer / Save customer only buttons. The dedicated **Add new customer** entry is now beside Add Product on Products & Scan. It opens customer-only name/address matching followed by blank new-product fields. The original Add Product behavior remains separate.
+
+## Reliable shared-device delivery and simpler results (2026.11.12.18)
+
+Removed the separate Add new customer button. Add Product retains full-product matching and the Customer only action. Customer suggestions appear only when matches exist; no-match results leave no empty message box, and clicking outside closes suggestions. Product search rows and matching results now include Type (Jenis Borang).
+
+Complete Record displays dates as **DD/MM/YYYY** and retains Edit/PDF actions while hiding Delete. Date filtering and underlying stored dates keep their existing behavior.
+
+Shared-device actions are now saved in a per-group, per-member browser outbox before sending. Transient failures retry automatically in order, including after a refresh, using the same request ID to prevent duplicate server actions after a lost response. Pending actions are sent before restoring the shared workspace. A queue update received while a field has focus is rendered after leaving the field, preserving the local draft. Complete events also refresh another member's open Complete Record view. Returning online or focusing the website resumes polling.
+
+The top device banner stays hidden. Management shows the connection status and group identifier; devices must belong to the same group to share the workspace (up to five devices). Keep the server running and refresh all connected browsers after updating. Existing group connections remain valid; different browsers or site addresses use separate browser storage and need their own pairing.
