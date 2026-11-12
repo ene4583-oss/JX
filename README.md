@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.21**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.22**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -297,3 +297,9 @@ Phones now show Products & Scan and Print Queue. Both lists provide Edit product
 ## Stacked Add Product sections (2026.11.12.21)
 
 Add Product keeps its wide dialog and compact fields, with the Customers section above Product details instead of side by side. Phone product review/editing and shared-device behavior remain available.
+
+## Add Product on phones (2026.11.12.22)
+
+Phones now include Add Product alongside Scan QR. The form supports a new customer or matching an existing customer, including Customer only to add another product for that customer. Saving creates a product in the database and synchronizes the active product list with the connected group; Add to Print remains a separate action. Existing product edits and queue review/removal remain available. Complete, PDF generation, export and management stay on the computer.
+
+Add Product is restored to its original portrait-style dialog: Customers above Product details, normal field sizes and the original narrower window. The wide desktop layout has been removed.
