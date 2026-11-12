@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.23**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.12.24**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -307,3 +307,9 @@ Add Product is restored to its original portrait-style dialog: Customers above P
 ## Cleaner scan and Excel export areas (2026.11.12.23)
 
 Removed the scanner's introductory/instruction text and the phone scan introduction, keeping the photo/file/live/manual scan controls. Scan progress and errors still appear when an operation runs. Complete Record's export explanation and the master workbook's descriptive paragraph are hidden/removed; export buttons and date-filter behavior remain available.
+
+## Phone QR display and printing (2026.11.12.24)
+
+Phone product cards in Products & Scan and Print Queue now include QR. The same product-label dialog provides Print label, Download QR JPG and the product link. Saving a product on a phone also opens its QR label, matching desktop behavior. Print label invokes the browser/system print dialog; form completion and other management actions remain on the computer.
+
+Add Product retains the portrait-style stacked Customers / Product details sections and normal two-column fields, with the desktop window widened to a maximum of 1100px. Phone sizing stays responsive.
