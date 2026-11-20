@@ -54,3 +54,9 @@ test('calibrated writing baselines stay fixed when a long serial number shrinks'
   assert.ok(sizes[1]<sizes[0],'Long serial uses a smaller font');
   assert.equal(positions[0],positions[1],'Shrinking a long serial must not move it off its writing line');
 });
+
+test('Borang wraps complete words and omits Kawasan from all 18 forms and list addresses',async()=>{
+ const font={widthOfTextAtSize:(value,size)=>value.length*size};assert.deepEqual(pdf.wrap(font,'ALPHA BETA GAMMA',1,9,true),['ALPHA','BETA','GAMMA']);assert.deepEqual(pdf.wrap(font,'ALEXANDER',1,4,true),['ALEXANDER']);assert.deepEqual(pdf.wrap(font,'中文名字 ALPHA',1,4,true),['中文名字','ALPHA']);
+ const products=formats.companies.flatMap(company=>formats.types.map(product_type=>({company,product_type,brand:'TEST',serial_no:'SN123',name:'ALEXANDER HAMILTON',address:'123 CUSTOMER ROAD',area:'KAWASAN_EXCLUSIVE_MARKER',details:{capacity:'10KG'}})));
+ const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');for(const bytes of [await pdf.generate({settings:{stamping_date:'2026-11-20'},products}),await pdf.generateList({settings:{stamping_date:'2026-11-20'},products})]){const task=getDocument({data:new Uint8Array(bytes),useSystemFonts:true});try{const doc=await task.promise;let text='';for(let n=1;n<=doc.numPages;n++)text+=(await(await doc.getPage(n)).getTextContent()).items.map(x=>x.str).join(' ');assert.doesNotMatch(text,/KAWASAN_EXCLUSIVE_MARKER/);assert.match(text,/ALEXANDER/);assert.match(text,/HAMILTON/);}finally{await task.destroy();}}
+});

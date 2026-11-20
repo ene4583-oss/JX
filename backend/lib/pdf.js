@@ -15,10 +15,11 @@ function assets() {
   ]);
 }
 function displayDate(value) { const [y, m, d] = date(value).split('-'); return `${d}/${m}/${y}`; }
-function wrap(font, value, size, width) {
+function wrap(font, value, size, width, wholeWords=false) {
   const lines = [];
   for (const paragraph of value.split('\n')) {
     let line = '';
+    if(wholeWords){let space='';for(const word of paragraph.trim().match(/\s+|[\u3400-\u9fff]|[^\s\u3400-\u9fff]+/gu)||[]){if(/^\s+$/.test(word)){space=' ';continue;}const next=line?line+space+word:word;if(line&&font.widthOfTextAtSize(next,size)>width){lines.push(line);line=word;}else line=next;space='';}lines.push(line);continue;}
     for (const char of paragraph) {
       if (line && font.widthOfTextAtSize(line + char, size) > width) { lines.push(line); line = ''; }
       line += char;
@@ -30,10 +31,12 @@ function wrap(font, value, size, width) {
 function drawText(page, font, supported, field, value, rect, lineHeight, baselineSize, initialSize) {
   const [x, top, width, height] = rect;
   let size = initialSize || 9;
-  let lines = wrap(font, value, size, width - 2);
+  const wholeWords=['owner','name','list name'].includes(field);
+  let lines = wrap(font, value, size, width - 2,wholeWords);
+  const tooWide=()=>lines.some(line=>font.widthOfTextAtSize(line,size)>width-2);
   const occupied=()=>baselineSize?(lines.length-1)*(lineHeight||size*1.18)+baselineSize:lineHeight?(lines.length-1)*lineHeight+size:lines.length*size*1.18;
-  while (size > 5 && (occupied() > height || field==='serial_no'&&lines.length>1)) { size -= .25; lines = wrap(font, value, size, width - 2); }
-  check(occupied() <= height, `${field} is too long for the form. Shorten it and retry.`);
+  while (size > 5 && (tooWide() || occupied() > height || field==='serial_no'&&lines.length>1)) { size -= .25; lines = wrap(font, value, size, width - 2,wholeWords); }
+  check(!tooWide() && occupied() <= height, `${field} is too long for the form. Shorten it and retry.`);
   check([...value.replace(/\n/g, '')].every(char => supported.has(char.codePointAt(0))), 'Some characters are not supported by the PDF font. Check the text.');
   lines.forEach((line, index) => {
     const y=page.getHeight()-top-(baselineSize||size)-index*(lineHeight||size*1.18);
@@ -64,8 +67,8 @@ async function generate(snapshot, customTemplates = {}) {
     const indices=custom?.background?background.getPageIndices():[formats.types.indexOf(product.product_type)];
     pageCounts[product.id]=indices.length;const pages=await output.copyPages(background,indices);for(const item of pages)output.addPage(item);const page=pages[0];
     const d = product.details;
-    const values = { ...d, name:product.name,address:product.address,area:product.area,phone:product.phone, brand: product.brand, model: product.model, serial_no: product.serial_no,
-      date: displayDate(snapshot.settings.stamping_date), owner: [product.name, product.address, product.area].filter(Boolean).join('\n'),
+    const values = { ...d, name:product.name,address:product.address,area:'',phone:product.phone, brand: product.brand, model: product.model, serial_no: product.serial_no,
+      date: displayDate(snapshot.settings.stamping_date), owner: [product.name, product.address].filter(Boolean).join('\n'),
       old_reg: d.last_reg || d.new_reg || d.old_reg || '' };
     if (/^\d{4}-\d{2}-\d{2}$/.test(values.last_date || '')) values.last_date = displayDate(values.last_date);
     const spec = custom?.layout || layouts[`${product.company}/${product.product_type}`];
@@ -115,15 +118,15 @@ async function generateList(snapshot) {
   snapshot.products.forEach((p,index)=>{
     const d=p.details,entry=snapshot.settings.list_entries?.[p.id]||{};
     const fee=entry.stamping_fee||'', cents=fee?Math.round(Number(fee)*100):0;
-    const values=[String(index+1),p.name,[p.address,p.area].filter(Boolean).join('\n'),p.brand,['B','BARU'].includes(String(d.condition||'').toUpperCase())?'B':['L','LAMA'].includes(String(d.condition||'').toUpperCase())?'L':'',p.model,p.serial_no,d.capacity,p.product_type,d.old_reg,d.new_reg,entry.sticker_no||'',fee? (cents/100).toFixed(2):''];
+    const values=[String(index+1),p.name,p.address,p.brand,['B','BARU'].includes(String(d.condition||'').toUpperCase())?'B':['L','LAMA'].includes(String(d.condition||'').toUpperCase())?'L':'',p.model,p.serial_no,d.capacity,p.product_type,d.old_reg,d.new_reg,entry.sticker_no||'',fee? (cents/100).toFixed(2):''];
     const height=Math.max(26,...values.map((value,i)=>wrap(font,String(value||''),8,edges[i+1]-edges[i]-6).length*9.5+8));
     check(height<=420,'Customer details are too long for the list. Shorten them and retry.');
     if(top+height>550){total('SUBTOTAL',pageTotal);newPage();}
     line(top);for(const x of edges)page.drawLine({start:{x,y:612-top},end:{x,y:612-top-height},thickness:.6});
-    values.forEach((value,i)=>{if(value)drawText(page,font,supported,'list',String(value),[edges[i]+2,top+3,edges[i+1]-edges[i]-4,height-5]);});
+    values.forEach((value,i)=>{if(value)drawText(page,font,supported,i===1?'list name':'list',String(value),[edges[i]+2,top+3,edges[i+1]-edges[i]-4,height-5]);});
     top+=height;pageTotal+=cents;grandTotal+=cents;
   });
   total('TOTAL',grandTotal); output.setTitle(snapshot.settings.title||'Jian Xu — Stamping list');
   return Buffer.from(await output.save());
 }
-module.exports = { generate, generateList, template, displayDate };
+module.exports = { generate, generateList, template, displayDate, wrap };

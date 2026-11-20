@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.12.24**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.20.1**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -313,3 +313,14 @@ Removed the scanner's introductory/instruction text and the phone scan introduct
 Phone product cards in Products & Scan and Print Queue now include QR. The same product-label dialog provides Print label, Download QR JPG and the product link. Saving a product on a phone also opens its QR label, matching desktop behavior. Print label invokes the browser/system print dialog; form completion and other management actions remain on the computer.
 
 Add Product retains the portrait-style stacked Customers / Product details sections and normal two-column fields, with the desktop window widened to a maximum of 1100px. Phone sizing stays responsive.
+
+## Product/queue workflow update (2026.11.20.1)
+
+- Borang owner/name fields wrap at whole words. Kawasan is retained in the database and Excel, but omitted from form owner/address fields and printed list addresses.
+- Products & Scan includes kg (the existing capacity field) on desktop and phones. Edit Product labels that field kg. Jenis Alat is hidden outside ATN without deleting stored values.
+- Save returns to the page; Show Latest QR saves and opens the latest label. QR display, printed labels and downloaded JPG labels show customer name, current No. Daftar Lama, S/N and brand. Permanent product links are unchanged.
+- Desktop Print for selected moves up to 50 checked products into Print Queue together. Queue sorting supports Name A–Z, Kawasan A–Z and Kawasan then Name; form/List PDF order follows the displayed sort.
+- Valid inline queue fee/new-registration changes and queue editor changes autosave. Customer/product corrections and fees update live product data. New registrations are saved as pending queue values, survive refresh and become current only after Complete. Printing waits for pending saves; conflicts/errors are reported instead of silently overwriting changed records. Historical completed-record corrections retain their existing behavior.
+- Phone Remove from scanned list hides an accidental scan across the connected group, retaining the database product and Print Queue.
+
+No database reset or re-import is required. Retain backend/.env, restart the server and refresh all browsers. Startup adds the app_queue_drafts table without deleting existing data.

@@ -3,7 +3,7 @@ const QRCode = require('qrcode');
 const { check, text, id, hash, normalized, decode, date, HttpError } = require('./util');
 const formats = require('./formats');
 const pdf = require('./pdf');
-const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone,c.version AS customer_version FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) ';
+const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone,c.version AS customer_version,qd.new_reg AS queue_new_reg FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) LEFT JOIN app_queue_drafts qd ON qd.product_id=p.id ';
 class Service {
   constructor(db, publicUrl) { this.db = db; this.publicUrl = publicUrl; }
   async q(sql, args = []) { return (await this.db.query(sql, args))[0]; }
@@ -198,9 +198,9 @@ class Service {
         check(p.name.trim(), 'Enter the customer name.');
       }
       p.details.shop_out=require('./product-fields').shopOut(p.details.shop_out);
-      if(input.workflow_mode){p.details.old_reg=currentRegistration;p.details.last_reg=currentRegistration;p.details.new_reg=p.details.new_reg||currentRegistration;}
+      if(input.workflow_mode){p.details.new_reg=override?.details?.new_reg??p.queue_new_reg??'';p.details.old_reg=currentRegistration;p.details.last_reg=currentRegistration;p.details.new_reg=p.details.new_reg||currentRegistration;}
       check(p.brand.trim(), 'Enter the product brand first.'); check(formats.types.includes(p.product_type), 'Confirm the product type before printing.');
-      const entry = input.list_entries?.[productId] || {};
+      const entry = input.list_entries?.[productId] || {stamping_fee:p.details.stamping_fee||''};
       const fee = text(entry, 'stamping_fee', 20), sticker = text(entry, 'sticker_no', 80);
       check(!fee || /^(?:0|[1-9]\d{0,6})(?:\.\d{1,2})?$/.test(fee), 'Stamping fee must be non-negative with at most two decimal places.');
       settings.list_entries[productId] = { stamping_fee: fee, sticker_no: sticker };

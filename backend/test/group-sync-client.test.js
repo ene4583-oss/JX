@@ -53,3 +53,8 @@ test('shared customer updates refresh related products while preserving unsaved 
  app.run("refreshSharedCustomerCaches({customer_id:'customer',name:'New',address:'New road',area:'RAUB',phone:'0123',customer_version:2})");
  assert.equal(app.context.recentProducts.get('two').name,'New');assert.equal(app.context.selected.get('one').customer_version,2);assert.equal(app.context.selected.get('two').name,'Draft');assert.equal(app.context.selected.get('two').customer_version,1);assert.equal(app.context.chosenFormCustomer.version,1);
 });
+test('late group responses cannot replace newer autosaved product or customer data',()=>{
+ const app=runtime();app.context.selected=new Map([['one',{id:'one',version:3,customer_version:2,name:'Latest owner',address:'Latest road',details:{stamping_fee:'20'}}]]);app.context.recentProducts=new Map();
+ const old=app.run("freshGroupProduct({id:'one',version:2,customer_version:1,name:'Old owner',details:{stamping_fee:'10'}})");assert.equal(old.version,3);assert.equal(old.details.stamping_fee,'20');
+ const owner=app.run("freshGroupProduct({id:'one',version:3,customer_version:1,name:'Old owner',details:{stamping_fee:'20'}})");assert.equal(owner.name,'Latest owner');assert.equal(owner.customer_version,2);
+});
