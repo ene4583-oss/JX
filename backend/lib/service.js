@@ -128,7 +128,8 @@ class Service {
   }
   async qr(productId) {
     const product = await this.product(productId), link = this.publicUrl + '/#product=' + productId;
-    return { product, link, image: await QRCode.toDataURL(link, { width: 350, margin: 2 }) };
+    const matrix=QRCode.create(link,{errorCorrectionLevel:'M'}).modules;
+    return { product, link, image: await QRCode.toDataURL(link, { width: 350, margin: 2 }),modules:{size:matrix.size,data:Array.from(matrix.data)} };
   }
   async activePairs(user) { return this.q('SELECT s.id,s.created_at,s.expires_at,(s.mobile_hash IS NOT NULL) AS paired,d.desktop_name,d.mobile_name FROM app_scan_sessions s LEFT JOIN app_pair_devices d ON d.session_id=s.id WHERE s.owner_id=? AND s.expires_at>NOW() ORDER BY s.created_at DESC', [user]); }
   async createPair(user,input={}) {

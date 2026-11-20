@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.20.3**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.20.4**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -332,3 +332,13 @@ Print Queue now always sorts Name A–Z and exposes only that option. Original o
 ## Product selection count (2026.11.20.3)
 
 Products & Scan shows a live selected count beside Print for selected. Individual row selection and the header checkbox update it immediately. The count includes selected products across search results/pages and refreshes when selected scan entries are removed. Signing out or switching employees clears the selection.
+
+## Android Bluetooth ESC/POS QR labels (2026.11.20.4)
+
+Product QR dialogs now offer **58mm / 80mm**, **Bluetooth print (RawBT)** and **Download ESC/POS**. Both widths render the QR with integer-sized modules and a quiet zone, plus customer name, current No. Daftar Lama, S/N and brand. Text is rasterized, including Unicode customer names; printer code-page support is not required.
+
+On Android, pair the printer in system Bluetooth settings, select it in RawBT and use ESC/POS mode. Open the product QR on the website, choose paper width and tap Bluetooth print (RawBT). The website hands raw binary commands to the installed RawBT app using its Android intent. This works without browser Web Bluetooth/HTTPS access and does not turn Classic Bluetooth SPP into a browser-supported connection. The setup panel links to RawBT in Google Play. Direct iPhone Bluetooth printing is not provided; regular Print label/JPG download remain available.
+
+58mm uses 384 printhead dots; 80mm uses 576 dots. The command stream uses ESC @ initialization, GS v 0 monochrome raster stripes and four-line feed, with no automatic cut command. The downloadable .escpos file contains the same bytes passed to RawBT. Bluetooth/app/printer delivery and actual printed output cannot be confirmed by the website: the status reports handoff, not successful physical printing. Printer model/protocol compatibility still requires a physical test; TSPL/CPCL-only printers do not support this ESC/POS mode.
+
+No database reset or new tables are needed. Keep backend/.env, restart the server and refresh connected browsers. Hardware-independent tests cover binary encoding, both widths, pixel/bit order, raster stripe boundaries, command validation and the Android intent. Browser tests reconstruct and scan the QR from both ESC/POS files; no physical printer was attached.
