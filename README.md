@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.20.6**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.20.7**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -356,3 +356,7 @@ Products & Scan and Print Queue default to Name A–Z. Each data-column header h
 Search-result sorting is applied in the database before pagination, so the order is consistent across all matching pages. Scan-list and queue sorting preserve selections and autosave drafts. Opening a fresh page restores Name A–Z.
 
 Products & Scan now shows Created Date as DD/MM/YYYY, using the product's existing database created_at timestamp in Malaysia/Singapore time. Editing or rescanning does not change it. Imported products show their original creation/import date in this system, not their historical stamping date. Phone product cards also show Created Date and both phone lists default to Name A–Z. No tables or stored records are reset or migrated.
+
+## Created Date is each product's first Save date (2026.11.20.7)
+
+New products explicitly receive CURRENT_TIMESTAMP on insertion. Created Date is the date that particular product was first saved, shown in Malaysia time; it is never copied from the customer. If an existing customer gets one new product today and another tomorrow, those products show today's and tomorrow's dates independently. Editing, queue autosaving and scanning existing products do not reset their first-Save date. Existing stored data and accounts remain unchanged; no database migration is required.

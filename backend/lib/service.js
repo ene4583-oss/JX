@@ -118,7 +118,7 @@ class Service {
     details.shop_out=require('./product-fields').shopOut(details.shop_out);
     const productId = existing || id();
     if (!existing) {
-      await this.q('INSERT INTO app_products(id,customer_id,company,product_type,brand,model,serial_no,identity_hash,details,created_by) VALUES (?,?,?,?,?,?,?,?,?,?)', [productId, customer, company, type, brand, model, serial, identity, JSON.stringify(details), user]);
+      await this.q('INSERT INTO app_products(id,customer_id,company,product_type,brand,model,serial_no,identity_hash,details,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)', [productId, customer, company, type, brand, model, serial, identity, JSON.stringify(details), user]);
     } else {
       check(Number.isInteger(input.version), 'Reload the record.');
       const result = await this.q('UPDATE app_products SET customer_id=?,company=?,product_type=?,brand=?,model=?,serial_no=?,identity_hash=?,details=?,version=version+1 WHERE id=? AND version=?', [customer, company, type, brand, model, serial, identity, JSON.stringify(details), productId, input.version]);

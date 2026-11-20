@@ -103,3 +103,14 @@ test('MySQL workflow: product header sorting is global across pages and creation
  assert.equal((await req('/products'+query+'&sort='+encodeURIComponent('name;DROP TABLE app_products'))).status,400);assert.equal((await req('/products'+query+'&direction='+encodeURIComponent('desc;DROP TABLE app_products'))).status,400);
  const current=(await req('/products/'+rows[0].id)).data;const updated=await req('/products/'+current.id,'PUT',{...current,model:'EDITED MODEL'});assert.equal(updated.status,200);assert.equal(updated.data.created_at,current.created_at);
 });
+test('MySQL workflow: each new product records its own first Save day independently of an older customer',{skip:!enabled},async t=>{
+ const {req,service}=await setup(t),actor=(await req('/auth')).data.user.id,dates=require('../../frontend/table-sort');
+ async function at(instant,action){return service.transaction(async db=>{await db.q('SET timestamp=?',[Date.parse(instant)/1000]);try{return await action(db);}finally{await db.q('SET timestamp=DEFAULT');}});}
+ const customer=await at('2026-10-01T02:00:00Z',db=>db.createManualCustomer({name:'OLDER CUSTOMER',address:'ROAD'},actor));
+ const input={customer_id:customer.id,company:'DE',product_type:'ATN',brand:'TEST',model:'M',details:{capacity:'10KG'},created_at:customer.created_at,created_epoch:1};
+ const first=await at('2026-11-20T02:00:00Z',db=>db.saveProduct(null,{...input,serial_no:'FIRST-'+crypto.randomUUID()},actor));
+ const second=await at('2026-11-21T02:00:00Z',db=>db.saveProduct(null,{...input,serial_no:'SECOND-'+crypto.randomUUID()},actor));
+ assert.equal(first.customer_id,second.customer_id);assert.notEqual(first.id,second.id);assert.equal(dates.createdDate(first),'20/11/2026');assert.equal(dates.createdDate(second),'21/11/2026');assert.equal(Number(first.created_epoch),Date.parse('2026-11-20T02:00:00Z')/1000);assert.equal(Number(second.created_epoch),Date.parse('2026-11-21T02:00:00Z')/1000);
+ const edited=await at('2026-11-22T02:00:00Z',db=>db.saveProduct(first.id,{...first,model:'UPDATED MODEL',created_at:second.created_at},actor));assert.equal(dates.createdDate(edited),'20/11/2026');assert.equal(edited.created_at,first.created_at);assert.equal((await service.customer(customer.id)).created_at,customer.created_at);
+ for(const product of [first,second]){const loaded=(await req('/products/'+product.id)).data;assert.equal(loaded.created_at,product.created_at);assert.equal(dates.createdDate(loaded),dates.createdDate(product));}
+});
