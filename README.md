@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.20.2**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.20.3**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -328,3 +328,7 @@ No database reset or re-import is required. Retain backend/.env, restart the ser
 ## Name-only queue sorting (2026.11.20.2)
 
 Print Queue now always sorts Name A–Z and exposes only that option. Original order and Kawasan sorting have been removed. Previously saved sort preferences are ignored; the queue and generated forms/List PDFs use the same name order. Existing data is unchanged.
+
+## Product selection count (2026.11.20.3)
+
+Products & Scan shows a live selected count beside Print for selected. Individual row selection and the header checkbox update it immediately. The count includes selected products across search results/pages and refreshes when selected scan entries are removed. Signing out or switching employees clears the selection.
