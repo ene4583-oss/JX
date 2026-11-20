@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.20.1**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.20.2**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -324,3 +324,7 @@ Add Product retains the portrait-style stacked Customers / Product details secti
 - Phone Remove from scanned list hides an accidental scan across the connected group, retaining the database product and Print Queue.
 
 No database reset or re-import is required. Retain backend/.env, restart the server and refresh all browsers. Startup adds the app_queue_drafts table without deleting existing data.
+
+## Name-only queue sorting (2026.11.20.2)
+
+Print Queue now always sorts Name A–Z and exposes only that option. Original order and Kawasan sorting have been removed. Previously saved sort preferences are ignored; the queue and generated forms/List PDFs use the same name order. Existing data is unchanged.
