@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.20.5**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.20.6**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -348,3 +348,11 @@ No database reset or new tables are needed. Keep backend/.env, restart the serve
 On phones and computers, scanning a product opens Edit Product without adding it to Products & Scan or Print Queue and without broadcasting it to connected devices. Close leaves the active lists unchanged. Save or Show Latest QR saves the product and then adds it to the shared product list; Add to Print remains separate.
 
 QR labels now include kg (the existing capacity value) in the on-screen/system-print label, downloaded JPG, bulk A4 QR PDF and both 58mm/80mm ESC/POS outputs. The permanent QR link is unchanged. No database reset is required.
+
+## Column sorting and product creation dates (2026.11.20.6)
+
+Products & Scan and Print Queue default to Name A–Z. Each data-column header has a keyboard-accessible sort button and an ascending/descending indicator; Select and Actions remain controls rather than sort columns. Fee and kg/Capacity sort numerically, dates chronologically, and blank values stay at the end. Print Queue's Sort dropdown is removed. Form/List PDFs follow the selected queue order, including inline draft fee/new-registration values.
+
+Search-result sorting is applied in the database before pagination, so the order is consistent across all matching pages. Scan-list and queue sorting preserve selections and autosave drafts. Opening a fresh page restores Name A–Z.
+
+Products & Scan now shows Created Date as DD/MM/YYYY, using the product's existing database created_at timestamp in Malaysia/Singapore time. Editing or rescanning does not change it. Imported products show their original creation/import date in this system, not their historical stamping date. Phone product cards also show Created Date and both phone lists default to Name A–Z. No tables or stored records are reset or migrated.

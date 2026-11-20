@@ -37,7 +37,7 @@ function harden(app, config) {
 }
 function staticFiles(app) {
   app.get(['/', '/index.html'], (req, res) => res.sendFile(path.join(frontend, 'index.html')));
-  for (const file of ['app.js', 'app.css','workflow.js','templates.js','qr-image.js','qr-worker.js','queue-sync.js','tiff-worker.js','atn-options.js','form-fields.js','customer-entry.js','group-sync.js','record-editor.js','mobile-scan.js','queue-editing.js','escpos.js','bluetooth-print.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
+  for (const file of ['app.js', 'app.css','workflow.js','templates.js','qr-image.js','qr-worker.js','queue-sync.js','tiff-worker.js','atn-options.js','form-fields.js','customer-entry.js','group-sync.js','record-editor.js','mobile-scan.js','queue-editing.js','escpos.js','bluetooth-print.js','table-sort.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
   for(const resource of ['cmaps','standard_fonts','wasm'])app.use('/vendor/pdfjs/'+resource,express.static(path.join(__dirname,'../node_modules/pdfjs-dist',resource),{dotfiles:'deny'}));
   app.use('/vendor/pdfjs',express.static(path.join(__dirname,'../node_modules/pdfjs-dist/build'),{dotfiles:'deny'}));
   app.get('/vendor/heic-worker.js',(req,res)=>{res.set('Content-Security-Policy',"default-src 'none'; script-src 'self' 'unsafe-eval'; connect-src 'none'");res.sendFile(path.join(frontend,'vendor/heic-worker.js'));});
@@ -64,7 +64,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.20.5', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.20.6', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -109,7 +109,7 @@ async function apiApp(pool, config) {
   route('put', '/api/customers/:id', (s, r) => s.updateCustomer(r.params.id, r.body, r.user.id), true);
   route('get','/api/qr/products',(s,r)=>s.qrProducts(String(r.query.q||'')));
   app.post('/api/qr/labels.pdf',asyncCall(async(req,res)=>fileResponse(res,await service.qrLabels(req.body),'JX-QR-Labels.pdf')));
-  route('get', '/api/products', (s, r) => s.products(String(r.query.q || ''), Number(r.query.page || 0)));
+  route('get', '/api/products', (s, r) => s.products(String(r.query.q || ''), Number(r.query.page || 0),String(r.query.sort||'name'),String(r.query.direction||'asc')));
   route('put','/api/products/:id/queue-details',(s,r)=>require('./queue-edit').save(s,r.params.id,r.body,r.user.id),true);
   route('get', '/api/products/:id', (s, r) => s.product(r.params.id));
   route('post', '/api/products', (s, r) => s.saveProduct(null, r.body, r.user.id), true);

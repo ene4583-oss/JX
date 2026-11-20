@@ -3,7 +3,7 @@ const QRCode = require('qrcode');
 const { check, text, id, hash, normalized, decode, date, HttpError } = require('./util');
 const formats = require('./formats');
 const pdf = require('./pdf');
-const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone,c.version AS customer_version,qd.new_reg AS queue_new_reg FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) LEFT JOIN app_queue_drafts qd ON qd.product_id=p.id ';
+const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone,c.version AS customer_version,qd.new_reg AS queue_new_reg,UNIX_TIMESTAMP(p.created_at) AS created_epoch FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) LEFT JOIN app_queue_drafts qd ON qd.product_id=p.id ';
 class Service {
   constructor(db, publicUrl) { this.db = db; this.publicUrl = publicUrl; }
   async q(sql, args = []) { return (await this.db.query(sql, args))[0]; }
@@ -76,11 +76,12 @@ class Service {
     const regExpression=key=>"UPPER(REPLACE(REPLACE(REPLACE(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(p.details,'$."+key+"')),''),' ',''),'-',''),'/','')) LIKE ?";
     return {filter:filter+' OR '+regExpression('new_reg')+' OR '+regExpression('old_reg'),args:[...args,...Array(2).fill('%'+q.replace(/[\s/-]/g,'').toUpperCase()+'%')]};
   }
-  async products(q,page) {
+  async products(q,page,sort='name',direction='asc') {
     check(Number.isInteger(page)&&page>=0&&page<=100000,'Invalid search conditions.');
+    const order=require('./product-sort').orderBy(sort,direction);
     const {filter,args}=this.productSearch(q);
     const count = await this.one('SELECT COUNT(*) AS count FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) ' + filter, args);
-    const rows = await this.q(productSql + filter + ' ORDER BY p.updated_at DESC,p.id LIMIT 30 OFFSET ?', [...args, page * 30]);
+    const rows = await this.q(productSql + filter + ' ORDER BY '+order+' LIMIT 30 OFFSET ?', [...args, page * 30]);
     return { total: Number(count.count), page, items: rows.map(row => this.hydrate(row)) };
   }
   async qrProducts(q){
