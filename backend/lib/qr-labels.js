@@ -30,10 +30,10 @@ async function generate(products,publicUrl){
     const qr=await doc.embedPng(await QRCode.toBuffer(publicUrl+'/#product='+p.id,{width:400,margin:4,errorCorrectionLevel:'M'}));
     page.drawImage(qr,{x:x+(cellW-108)/2,y:top-113,width:108,height:108});
     let y=top-125;
-    for(const [text,size,count]of [[p.name,8,2],[[p.brand,p.model].filter(Boolean).join(' / '),8,2],['S/N: '+(p.serial_no||'—'),7,1],['Reg: '+(p.details.new_reg||p.details.old_reg||'—'),7,1]]){
+    for(const [text,size,count]of [[p.name,8,2],[[p.brand,p.model].filter(Boolean).join(' / '),8,2],['S/N: '+(p.serial_no||'—'),7,1],['No. Daftar Lama: '+(p.details.new_reg||p.details.old_reg||'—'),7,1],['kg: '+(p.details.capacity||'—'),7,1]]){
       for(const line of lines(font,text,size,cellW-18,count)){page.drawText(line,{x:x+9,y,size,font});y-=10;}
     }
-    page.drawText(p.id.slice(0,8),{x:x+9,y:top-cellH+10,size:6,font,color:rgb(.4,.4,.4)});
+
   }
   return Buffer.from(await doc.save());
 }

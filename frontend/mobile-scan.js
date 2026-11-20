@@ -14,7 +14,7 @@ function phoneProductCard(p,inQueue=false){
 products=async function(){if(!phoneScanOnly)return desktopProducts();await loadRecent();const root=$('product-list');root.replaceChildren(...[...recentProducts.values()].reverse().map(p=>phoneProductCard(p)));$('customer-list').replaceChildren();$('product-pagination').hidden=true;};
 printList=function(){if(!phoneScanOnly)return desktopPrintList();const root=$('print-list');root.replaceChildren(...[...selected.values()].map(p=>phoneProductCard(p,true)));if(!selected.size)root.append(node('p','No products in the queue.'));};
 route=async function(){if(phoneScanOnly&&auth?.authenticated){const params=new URLSearchParams(location.hash.slice(1));if(!params.has('product')&&!params.has('pair')&&!params.has('group')&&!['#products','#print'].includes(location.hash))history.replaceState(null,'',location.pathname+location.search+'#products');}return desktopRoute();};
-scanProduct=async function(id){if(!phoneScanOnly)return desktopScanProduct(id);const p=await api('/products/'+encodeURIComponent(id));await shareWorkspaceProduct(p);lookupProduct=null;query='';$('product-search').reset();location.hash='products';await route();message('Product loaded. Check the details, edit if needed, then tap Add to Print.');};
+scanProduct=desktopScanProduct;
 editProduct=function(p){if(phoneScanOnly)document.body.classList.toggle('phone-new-product',!p);const result=desktopEditProduct(p);return result;};
 qr=desktopQr;
 const desktopSyncStatus=setSyncStatus;setSyncStatus=function(text,error=false){desktopSyncStatus(text,error);$('mobile-sync-status').textContent=text;};

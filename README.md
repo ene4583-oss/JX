@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.20.4**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.20.5**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -342,3 +342,9 @@ On Android, pair the printer in system Bluetooth settings, select it in RawBT an
 58mm uses 384 printhead dots; 80mm uses 576 dots. The command stream uses ESC @ initialization, GS v 0 monochrome raster stripes and four-line feed, with no automatic cut command. The downloadable .escpos file contains the same bytes passed to RawBT. Bluetooth/app/printer delivery and actual printed output cannot be confirmed by the website: the status reports handoff, not successful physical printing. Printer model/protocol compatibility still requires a physical test; TSPL/CPCL-only printers do not support this ESC/POS mode.
 
 No database reset or new tables are needed. Keep backend/.env, restart the server and refresh connected browsers. Hardware-independent tests cover binary encoding, both widths, pixel/bit order, raster stripe boundaries, command validation and the Android intent. Browser tests reconstruct and scan the QR from both ESC/POS files; no physical printer was attached.
+
+## Review scanned products before adding; kg on QR labels (2026.11.20.5)
+
+On phones and computers, scanning a product opens Edit Product without adding it to Products & Scan or Print Queue and without broadcasting it to connected devices. Close leaves the active lists unchanged. Save or Show Latest QR saves the product and then adds it to the shared product list; Add to Print remains separate.
+
+QR labels now include kg (the existing capacity value) in the on-screen/system-print label, downloaded JPG, bulk A4 QR PDF and both 58mm/80mm ESC/POS outputs. The permanent QR link is unchanged. No database reset is required.
