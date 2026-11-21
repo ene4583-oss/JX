@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.21.10**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.21.11**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -400,3 +400,7 @@ Windows launchers use pushd/popd to support both local folders and UNC shares su
 ## Move the server and Print Queue (2026.11.21.10)
 
 SQL backups contain products, completed records, settings and templates. Each browser's local Print Queue also needs its own transfer file. On the old computer, update the code while keeping backend/.env, then open the SAME browser profile, website address and username that still shows the queue. In Print Queue click Export queue backup. Copy JX-Queue-Backup.json and the latest SQL backup to the new computer. Restore SQL and start the new server, then use Print Queue → Import queue backup. All referenced product IDs must exist; otherwise nothing imports. The transfer replaces only this browser's queue and scanned list; it never creates/deletes products or completes records. It includes pending registration, fee, selection checkboxes, company/date/title and queue sort. Imported queue values persist across browser reloads. No pairing or ongoing connection to the old computer is required. Printed QR labels pointing at the old server address still require an address update or reprint. The queue JSON includes customer information; it contains no login credentials or device connection tokens.
+
+## Keep the Products & Scan working list after moving (2026.11.21.11)
+
+The working list now persists per user in browser local storage, so closing a tab or opening a new tab no longer loses the imported list. Existing session lists migrate automatically. On first recovery, the queue-transfer workspace IDs are used; if absent, existing queued products seed the list. An explicitly stored empty list stays empty so completed/removed products do not reappear. The database product library is unchanged.
