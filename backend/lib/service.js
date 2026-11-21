@@ -181,7 +181,7 @@ class Service {
     const delivery=await this.one('SELECT version,acknowledged FROM app_scan_deliveries WHERE session_id=? AND product_id=?',[sessionId,text(input,'product',36)]);check(Number.isInteger(input.version)&&input.version>0,'Invalid delivery version.');return {received:Number(delivery.acknowledged)>=input.version,version:Number(delivery.version)};
   }
   async endPair(sessionId, user) { await this.ownedPair(sessionId, user); await this.q('DELETE FROM app_scan_sessions WHERE id=?', [sessionId]); await this.audit(user, 'pair.end', sessionId); return { success: true }; }
-  async snapshot(input) {
+  async snapshot(input, listPreview = false) {
     const ids = input.product_ids;
     check(Array.isArray(ids) && ids.length > 0 && ids.length <= 50 && ids.every(value => typeof value === 'string') && new Set(ids).size === ids.length, 'Select 1–50 different products per print.');
     check(formats.companies.includes(input.company), 'Choose DE or MCM before printing.');
@@ -200,7 +200,7 @@ class Service {
         check(p.name.trim(), 'Enter the customer name.');
       }
       p.details.shop_out=require('./product-fields').shopOut(p.details.shop_out);
-      if(input.workflow_mode){p.details.new_reg=override?.details?.new_reg??p.queue_new_reg??'';p.details.old_reg=currentRegistration;p.details.last_reg=currentRegistration;p.details.new_reg=p.details.new_reg||currentRegistration;}
+      if(input.workflow_mode||listPreview){p.details.new_reg=override?.details?.new_reg??p.queue_new_reg??'';p.details.old_reg=currentRegistration;p.details.last_reg=currentRegistration;if(!listPreview)p.details.new_reg=p.details.new_reg||currentRegistration;}
       check(p.brand.trim(), 'Enter the product brand first.'); check(formats.types.includes(p.product_type), 'Confirm the product type before printing.');
       const entry = input.list_entries?.[productId] || {stamping_fee:p.details.stamping_fee||''};
       const fee = text(entry, 'stamping_fee', 20), sticker = text(entry, 'sticker_no', 80);
@@ -210,7 +210,7 @@ class Service {
     }
     return { settings, products };
   }
-  async previewList(input) { return pdf.generateList(await this.snapshot(input)); }
+  async previewList(input) { return pdf.generateList(await this.snapshot(input, true)); }
   async jobList(jobId) { return pdf.generateList(decode((await this.one('SELECT snapshot FROM app_jobs WHERE id=?', [jobId])).snapshot)); }
   async preview(input) { const snap=await this.snapshot(input);return pdf.generate(snap,await require('./form-templates').resolved(this,snap)); }
   async saveJob(input, user) {

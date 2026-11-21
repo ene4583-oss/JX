@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.21.3**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.21.4**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -372,3 +372,7 @@ Products & Scan and Print Queue default to oldest Last Saved Date first, then sa
 ## Existing product date correction (2026.11.21.3)
 
 On the first startup of this version, existing products receive a Last Saved Date of 20/11/2026 (Malaysia/Singapore). Local time-of-day is preserved. Original save timestamps are retained in app_product_date_backup; original created_at, customers, completed stamping dates, PDFs and product details remain unchanged. The transaction records a marker in app_data_migrations even for an empty database, so restarting never resets later saves or newly added products. Product versions increment to invalidate stale edit forms. Reload all devices after restarting. Subsequent saves still use the actual current date.
+
+## Blank pending registration on Print List (2026.11.21.4)
+
+Print Queue's Print List PDF leaves No. Daftar Baru blank until a new number is entered in the queue. The current registration is printed under No. Daftar Lama only. Manually entered/draft new numbers print in the new-number column; completed record lists retain their saved final numbers. Printing does not change products or complete records.
