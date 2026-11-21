@@ -80,3 +80,5 @@
 /* Larger Select controls for staff, including select-all headers. */
 .work-table th input[type=checkbox],.work-table td[data-label=Select] input[type=checkbox],.queue-table input[type=checkbox]{width:28px;height:28px;min-width:28px;margin:3px;accent-color:var(--green);cursor:pointer;vertical-align:middle}
 .work-table th:first-child:has(input[type=checkbox]),.work-table td[data-label=Select]{min-width:42px!important}
+
+#record-trash-list .work-scroll{overflow:visible}#record-trash-list .work-table{min-width:0;table-layout:fixed}#record-trash-list .work-table th,#record-trash-list .work-table td{min-width:0;overflow-wrap:anywhere}#record-trash-list .work-table td:last-child{min-width:0}#record-trash-list button{margin:3px}

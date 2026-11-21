@@ -174,3 +174,18 @@ CREATE TABLE IF NOT EXISTS app_product_date_backup (
  original_saved_epoch BIGINT NOT NULL,
  PRIMARY KEY(migration_name,product_id)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_record_trash (
+ id VARCHAR(36) PRIMARY KEY,
+ original_job_id VARCHAR(36) NOT NULL,
+ product_id VARCHAR(36) NOT NULL,
+ title VARCHAR(200) NOT NULL,
+ stamping_date DATE NOT NULL,
+ snapshot JSON NOT NULL,
+ pdf LONGBLOB NOT NULL,
+ record_created_by VARCHAR(36) NOT NULL,
+ record_created_at TIMESTAMP NOT NULL,
+ deleted_by VARCHAR(36) NOT NULL,
+ deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX trash_date(deleted_at)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

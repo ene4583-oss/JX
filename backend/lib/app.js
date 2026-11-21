@@ -64,7 +64,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.21.7', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.21.8', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -138,6 +138,9 @@ async function apiApp(pool, config) {
   const excelResponse=(res,bytes,name='2025-format-records.xlsx')=>res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').set('Cache-Control','no-store').attachment(name).send(bytes);
   app.get('/api/library/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportProducts())));
   for(const [method,action] of [['get','get'],['put','edit'],['delete','remove']])route(method,'/api/records/:job/:product',(s,r)=>require('./saved-records')[action](s,r.params.job,r.params.product,...(action==='get'?[r.user]:[r.body,r.user])),true);
+  route('get','/api/record-trash',(s,r)=>require('./record-trash').list(s,r.user));
+  route('post','/api/record-trash/:id/restore',(s,r)=>require('./record-trash').restore(s,r.params.id,r.user),true);
+  route('delete','/api/record-trash/:id',(s,r)=>require('./record-trash').purge(s,r.params.id,r.body,r.user),true);
   route('get','/api/records/summary',s=>s.recordSummary());
   app.get('/api/records/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(null,req.query),'JX-Saved-Records.xlsx')));
   app.get('/api/jobs/:id/export.xlsx',asyncCall(async(req,res)=>excelResponse(res,await service.exportRecords(req.params.id))));

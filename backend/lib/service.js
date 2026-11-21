@@ -238,7 +238,8 @@ class Service {
   async exportRecords(jobId,filter={}) {
     const f=require('./workflow').filters(filter);if(!jobId){const count=await this.one("SELECT COALESCE(SUM(JSON_LENGTH(JSON_EXTRACT(snapshot,'$.products'))),0) AS n FROM app_jobs"+f.where,f.args);check(Number(count.n)<=200000,'More than 200,000 matching records. Choose a shorter date range.');}
     const rows=jobId?[await this.job(jobId)]:await this.q('SELECT title,snapshot FROM app_jobs'+f.where+' ORDER BY stamping_date,created_at',f.args);
-    const records=rows.flatMap(row=>{const snap=typeof row.snapshot==='object'&&row.snapshot.products?row.snapshot:decode(row.snapshot);return snap.products.map((p,index)=>({p,settings:snap.settings,index}));});
+    let records=rows.flatMap(row=>{const snap=typeof row.snapshot==='object'&&row.snapshot.products?row.snapshot:decode(row.snapshot);return snap.products.map((p,index)=>({p,settings:snap.settings,index}));});
+    if(filter.q)records=records.filter(row=>require('./workflow').matchesRecord(row.p,filter.q));
     check(records.length<=200000,'More than 200,000 records. Export individual forms.');
     return require('./export').records(records,{completed:true});
   }
