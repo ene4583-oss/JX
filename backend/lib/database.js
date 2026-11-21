@@ -45,7 +45,7 @@ async function connect(config, create = false) {
     try { await conn.query('CREATE DATABASE IF NOT EXISTS ?? CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci', [config.dbName]); } finally { await conn.end(); }
   }
   const pool = mysql.createPool(options(config));
-  try { await pool.query('SELECT 1'); await initialize(pool); await importUsers(pool, config); return pool; }
+  try { await pool.query('SELECT 1'); await initialize(pool); await require('./product-date-baseline').apply(pool); await importUsers(pool, config); return pool; }
   catch (error) { await pool.end(); throw error; }
 }
 module.exports = { connect, initialize, importUsers, options };

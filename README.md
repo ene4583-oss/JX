@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.21.2**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.21.3**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -368,3 +368,7 @@ Products & Scan now displays Last Saved Date instead of Created Date, using each
 ## Fixed date sequence (2026.11.21.2)
 
 Products & Scan and Print Queue default to oldest Last Saved Date first, then save time within that day. Date headers cannot be clicked. Other column sorts apply only within each Malaysia/Singapore calendar day; date groups always remain oldest first. Print Queue and phone queue cards now show Last Saved Date too. Printed lists follow queue order. No database migration is required.
+
+## Existing product date correction (2026.11.21.3)
+
+On the first startup of this version, existing products receive a Last Saved Date of 20/11/2026 (Malaysia/Singapore). Local time-of-day is preserved. Original save timestamps are retained in app_product_date_backup; original created_at, customers, completed stamping dates, PDFs and product details remain unchanged. The transaction records a marker in app_data_migrations even for an empty database, so restarting never resets later saves or newly added products. Product versions increment to invalidate stale edit forms. Reload all devices after restarting. Subsequent saves still use the actual current date.

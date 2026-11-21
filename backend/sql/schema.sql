@@ -162,3 +162,15 @@ CREATE TABLE IF NOT EXISTS app_queue_drafts (
  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  FOREIGN KEY(product_id) REFERENCES app_products(id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_data_migrations (
+ name VARCHAR(100) PRIMARY KEY,
+ affected_rows INT NOT NULL DEFAULT 0,
+ applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_product_date_backup (
+ migration_name VARCHAR(100) NOT NULL,
+ product_id VARCHAR(36) NOT NULL,
+ original_saved_epoch BIGINT NOT NULL,
+ PRIMARY KEY(migration_name,product_id)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
