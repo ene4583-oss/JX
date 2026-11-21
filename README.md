@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.21.5**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.21.6**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -380,3 +380,7 @@ Print Queue's Print List PDF leaves No. Daftar Baru blank until a new number is 
 ## Staff usability and Print List columns (2026.11.21.5)
 
 Select and select-all checkboxes are 28px. Success/error notices and dialog error messages disappear five seconds after the latest message; repeated actions show a fresh notice. Print List places narrow Baru/Lama before Jenama and widens both registration columns, with matching headers on every page.
+
+## Queue select-all and Complete Record sorting (2026.11.21.6)
+
+Print Queue uses the same large select-all checkbox as Products & Scan, including mixed selection state. Complete Record has clickable sort icons for all data columns; dates default newest first, numbers/fees sort numerically, and sorting applies across all matching records before pagination. Existing date filters and row selections are retained. Product/queue fixed date sequencing is unchanged.
