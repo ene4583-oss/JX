@@ -1,9 +1,11 @@
 @echo off
-setlocal
+setlocal EnableExtensions DisableDelayedExpansion
 chcp 65001 >nul
 set "JX_EXIT_CODE=1"
-cd /d "%~dp0backend"
+set "JX_PUSHED="
+pushd "%~dp0backend"
 if errorlevel 1 goto missing_files
+set "JX_PUSHED=1"
 if not exist "tools\set-admin-password.js" goto missing_files
 where node >nul 2>nul
 if errorlevel 1 goto missing_node
@@ -21,5 +23,6 @@ goto finish
 echo Run start-windows.bat once to install dependencies and set up MySQL.
 goto finish
 :finish
+if defined JX_PUSHED popd
 if not defined JX_NO_PAUSE pause
 exit /b %JX_EXIT_CODE%

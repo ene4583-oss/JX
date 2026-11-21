@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.21.8**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.21.9**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -392,3 +392,7 @@ Complete Record sort headers now use the same plain text and small-arrow styling
 ## Stamping record Trash and search (2026.11.21.8)
 
 Complete Record adds live search by owner name, address, registration, brand, model, serial and form type. Search combines with date filters, sorting and pagination; Export Excel uses the same search/date filters. Delete moves one stamping record and its original PDF pages into Management → Trash; other records in its batch remain intact. Only administrators can restore or permanently delete Trash records. Both operations preserve current product details, customer and permanent QR; restoring a record never rewinds live product data. Trash entries are omitted from Complete Record, history and exports. The existing Clear all records operation also clears Trash.
+
+## Windows shared-folder startup (2026.11.21.9)
+
+Windows launchers use pushd/popd to support both local folders and UNC shares such as \\JX\share\JX-main. CMD may still print its initial UNC-directory warning, but the launcher maps the working directory before checking or running the backend. The share must allow writing for dependency installation. For the main server, extracting into a local folder such as C:\JX is also supported. MySQL runs on the computer executing the launcher when DB_HOST is 127.0.0.1. The website launchers and password-reset launcher all use the same directory handling.
