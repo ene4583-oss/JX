@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.21.9**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.21.10**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -396,3 +396,7 @@ Complete Record adds live search by owner name, address, registration, brand, mo
 ## Windows shared-folder startup (2026.11.21.9)
 
 Windows launchers use pushd/popd to support both local folders and UNC shares such as \\JX\share\JX-main. CMD may still print its initial UNC-directory warning, but the launcher maps the working directory before checking or running the backend. The share must allow writing for dependency installation. For the main server, extracting into a local folder such as C:\JX is also supported. MySQL runs on the computer executing the launcher when DB_HOST is 127.0.0.1. The website launchers and password-reset launcher all use the same directory handling.
+
+## Move the server and Print Queue (2026.11.21.10)
+
+SQL backups contain products, completed records, settings and templates. Each browser's local Print Queue also needs its own transfer file. On the old computer, update the code while keeping backend/.env, then open the SAME browser profile, website address and username that still shows the queue. In Print Queue click Export queue backup. Copy JX-Queue-Backup.json and the latest SQL backup to the new computer. Restore SQL and start the new server, then use Print Queue → Import queue backup. All referenced product IDs must exist; otherwise nothing imports. The transfer replaces only this browser's queue and scanned list; it never creates/deletes products or completes records. It includes pending registration, fee, selection checkboxes, company/date/title and queue sort. Imported queue values persist across browser reloads. No pairing or ongoing connection to the old computer is required. Printed QR labels pointing at the old server address still require an address update or reprint. The queue JSON includes customer information; it contains no login credentials or device connection tokens.
