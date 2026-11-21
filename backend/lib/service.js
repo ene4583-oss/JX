@@ -3,7 +3,7 @@ const QRCode = require('qrcode');
 const { check, text, id, hash, normalized, decode, date, HttpError } = require('./util');
 const formats = require('./formats');
 const pdf = require('./pdf');
-const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone,c.version AS customer_version,qd.new_reg AS queue_new_reg,UNIX_TIMESTAMP(p.created_at) AS created_epoch FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) LEFT JOIN app_queue_drafts qd ON qd.product_id=p.id ';
+const productSql = 'SELECT p.*,c.name,c.address,c.area,c.phone,c.version AS customer_version,qd.new_reg AS queue_new_reg,UNIX_TIMESTAMP(p.created_at) AS created_epoch,UNIX_TIMESTAMP(p.updated_at) AS saved_epoch FROM app_products p JOIN app_customers c ON c.id=p.customer_id AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=c.id) LEFT JOIN app_queue_drafts qd ON qd.product_id=p.id ';
 class Service {
   constructor(db, publicUrl) { this.db = db; this.publicUrl = publicUrl; }
   async q(sql, args = []) { return (await this.db.query(sql, args))[0]; }
@@ -121,7 +121,7 @@ class Service {
       await this.q('INSERT INTO app_products(id,customer_id,company,product_type,brand,model,serial_no,identity_hash,details,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)', [productId, customer, company, type, brand, model, serial, identity, JSON.stringify(details), user]);
     } else {
       check(Number.isInteger(input.version), 'Reload the record.');
-      const result = await this.q('UPDATE app_products SET customer_id=?,company=?,product_type=?,brand=?,model=?,serial_no=?,identity_hash=?,details=?,version=version+1 WHERE id=? AND version=?', [customer, company, type, brand, model, serial, identity, JSON.stringify(details), productId, input.version]);
+      const result = await this.q('UPDATE app_products SET customer_id=?,company=?,product_type=?,brand=?,model=?,serial_no=?,identity_hash=?,details=?,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=? AND version=?', [customer, company, type, brand, model, serial, identity, JSON.stringify(details), productId, input.version]);
       check(result.affectedRows === 1, 'This product changed. Reload it and try again.', 409);
     }
     await this.audit(user, existing ? 'product.update' : 'product.create', productId);

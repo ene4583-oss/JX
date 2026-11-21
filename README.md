@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.20.7**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.21.1**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -360,3 +360,7 @@ Products & Scan now shows Created Date as DD/MM/YYYY, using the product's existi
 ## Created Date is each product's first Save date (2026.11.20.7)
 
 New products explicitly receive CURRENT_TIMESTAMP on insertion. Created Date is the date that particular product was first saved, shown in Malaysia time; it is never copied from the customer. If an existing customer gets one new product today and another tomorrow, those products show today's and tomorrow's dates independently. Editing, queue autosaving and scanning existing products do not reset their first-Save date. Existing stored data and accounts remain unchanged; no database migration is required.
+
+## Last Saved Date (2026.11.21.1)
+
+Products & Scan now displays Last Saved Date instead of Created Date, using each product's updated_at timestamp in Malaysia/Singapore time (DD/MM/YYYY). Creating or saving edits updates this date; opening, viewing or scanning without saving leaves it unchanged. Queue autosaves and Complete also persist product changes and update this timestamp. Original created_at is retained. Sorting uses the same last-saved timestamp on the server and in the browser. Existing data and accounts are preserved; no SQL migration is needed.
