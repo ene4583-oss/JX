@@ -4,7 +4,7 @@ const phoneScanOnly=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 if(phoneScanOnly)document.body.classList.add('phone-scan-only');
 const desktopProducts=products,desktopRoute=route,desktopScanProduct=scanProduct,desktopEditProduct=editProduct,desktopPrintList=printList,desktopQr=qr;
 function phoneProductCard(p,inQueue=false){
- const card=node('article',undefined,'panel phone-product');card.dataset.productId=p.id;card.append(node('h2',p.name));if(!inQueue){const created=node('p');created.append(node('strong','Last Saved Date: '),node('span',JxTableSort.savedDate(p)));card.append(created);}
+ const card=node('article',undefined,'panel phone-product');card.dataset.productId=p.id;card.append(node('h2',p.name));{const created=node('p');created.append(node('strong','Last Saved Date: '),node('span',JxTableSort.savedDate(p)));card.append(created);}
  for(const [label,value]of [['Address',p.address],['kg',p.details.capacity],['Type',p.product_type],['Registration',p.details.new_reg||p.details.old_reg],['Brand / Model',[p.brand,p.model].filter(Boolean).join(' / ')],['S/No',p.serial_no]]){const line=node('p');line.append(node('strong',label+': '),node('span',value||'—'));card.append(line);}
  card.append(btn('Edit product',async()=>editProduct(await api('/products/'+encodeURIComponent(p.id)))),btn('QR',()=>qr(p.id)));if(!inQueue)card.append(btn('Remove from scanned list',()=>clearWorkspaceProducts([p.id])));
  if(inQueue)card.append(btn('Remove from queue',()=>removeQueue([p.id])));

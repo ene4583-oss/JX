@@ -64,7 +64,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.21.1', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.21.2', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -109,7 +109,7 @@ async function apiApp(pool, config) {
   route('put', '/api/customers/:id', (s, r) => s.updateCustomer(r.params.id, r.body, r.user.id), true);
   route('get','/api/qr/products',(s,r)=>s.qrProducts(String(r.query.q||'')));
   app.post('/api/qr/labels.pdf',asyncCall(async(req,res)=>fileResponse(res,await service.qrLabels(req.body),'JX-QR-Labels.pdf')));
-  route('get', '/api/products', (s, r) => s.products(String(r.query.q || ''), Number(r.query.page || 0),String(r.query.sort||'name'),String(r.query.direction||'asc')));
+  route('get', '/api/products', (s, r) => s.products(String(r.query.q || ''), Number(r.query.page || 0),String(r.query.sort||'sequence'),String(r.query.direction||'asc')));
   route('put','/api/products/:id/queue-details',(s,r)=>require('./queue-edit').save(s,r.params.id,r.body,r.user.id),true);
   route('get', '/api/products/:id', (s, r) => s.product(r.params.id));
   route('post', '/api/products', (s, r) => s.saveProduct(null, r.body, r.user.id), true);

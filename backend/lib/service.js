@@ -76,7 +76,7 @@ class Service {
     const regExpression=key=>"UPPER(REPLACE(REPLACE(REPLACE(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(p.details,'$."+key+"')),''),' ',''),'-',''),'/','')) LIKE ?";
     return {filter:filter+' OR '+regExpression('new_reg')+' OR '+regExpression('old_reg'),args:[...args,...Array(2).fill('%'+q.replace(/[\s/-]/g,'').toUpperCase()+'%')]};
   }
-  async products(q,page,sort='name',direction='asc') {
+  async products(q,page,sort='sequence',direction='asc') {
     check(Number.isInteger(page)&&page>=0&&page<=100000,'Invalid search conditions.');
     const order=require('./product-sort').orderBy(sort,direction);
     const {filter,args}=this.productSearch(q);
