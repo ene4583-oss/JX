@@ -105,9 +105,15 @@ async function generateList(snapshot) {
   const font = await output.embedFont(fontBytes, { subset: false });
   const supported = new Set(font.getCharacterSet());
   const header = await output.embedPng(await fs.readFile(path.join(__dirname, '../assets/templates/list-header.png')));
-  const edges = [18.17,35,114.17,212.83,290.33,368,416.83,474.5,518.83,554.83,607.17,660.5,722.33,771.17];
+  const edges = [18.17,35,114.17,212.83,244.83,322.83,371.66,429.33,473.66,509.66,584.66,660.5,722.33,771.17];
   let page, top, pageTotal = 0, grandTotal = 0;
-  function newPage() { page=output.addPage([792,612]);page.drawImage(header,{x:0,y:502,width:792,height:110});top=110;pageTotal=0;if(snapshot.settings.title)drawText(page,font,supported,'list title',snapshot.settings.title,[18,8,600,25]);if(snapshot.settings.stamping_date)drawText(page,font,supported,'list date',displayDate(snapshot.settings.stamping_date),[620,45,150,16]); }
+  function newPage() { page=output.addPage([792,612]);page.drawImage(header,{x:0,y:502,width:792,height:110});top=110;pageTotal=0;
+    // Preserve the company heading and redraw the table header to match its columns.
+    page.drawRectangle({x:0,y:502,width:792,height:34,color:rgb(1,1,1)});
+    for(const y of [77,110])line(y);
+    for(const x of edges)page.drawLine({start:{x,y:535},end:{x,y:502},thickness:.6});
+    const labels=['Bil','Nama','Alamat','Baru/\nLama','Jenama','Model','No. Siri','Capacity','Jenis\nAlat','No. Daftar\nLama','No. Daftar\nBaru','No. Siri\nPelekat\nKeselamatan','Stamping\nFee'];
+    labels.forEach((label,i)=>{const lines=label.split('\n'),size=7.5;lines.forEach((text,j)=>page.drawText(text,{font,size,x:(edges[i]+edges[i+1]-font.widthOfTextAtSize(text,size))/2,y:612-77-(33-lines.length*9)/2-7-j*9}));});if(snapshot.settings.title)drawText(page,font,supported,'list title',snapshot.settings.title,[18,8,600,25]);if(snapshot.settings.stamping_date)drawText(page,font,supported,'list date',displayDate(snapshot.settings.stamping_date),[620,45,150,16]); }
   function line(y) { page.drawLine({start:{x:edges[0],y:612-y},end:{x:edges.at(-1),y:612-y},thickness:.6}); }
   function total(label, cents) {
     line(top); for(const x of [edges[0],edges[11],edges[12],edges[13]])page.drawLine({start:{x,y:612-top},end:{x,y:612-top-20},thickness:.6});
@@ -118,7 +124,7 @@ async function generateList(snapshot) {
   snapshot.products.forEach((p,index)=>{
     const d=p.details,entry=snapshot.settings.list_entries?.[p.id]||{};
     const fee=entry.stamping_fee||'', cents=fee?Math.round(Number(fee)*100):0;
-    const values=[String(index+1),p.name,p.address,p.brand,['B','BARU'].includes(String(d.condition||'').toUpperCase())?'B':['L','LAMA'].includes(String(d.condition||'').toUpperCase())?'L':'',p.model,p.serial_no,d.capacity,p.product_type,d.old_reg,d.new_reg,entry.sticker_no||'',fee? (cents/100).toFixed(2):''];
+    const values=[String(index+1),p.name,p.address,['B','BARU'].includes(String(d.condition||'').toUpperCase())?'B':['L','LAMA'].includes(String(d.condition||'').toUpperCase())?'L':'',p.brand,p.model,p.serial_no,d.capacity,p.product_type,d.old_reg,d.new_reg,entry.sticker_no||'',fee? (cents/100).toFixed(2):''];
     const height=Math.max(26,...values.map((value,i)=>wrap(font,String(value||''),8,edges[i+1]-edges[i]-6).length*9.5+8));
     check(height<=420,'Customer details are too long for the list. Shorten them and retry.');
     if(top+height>550){total('SUBTOTAL',pageTotal);newPage();}

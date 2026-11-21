@@ -35,7 +35,8 @@ test('List Format paginates all products and totals decimal fees without example
   const bytes=await pdf.generateList({settings:{list_entries},products});const doc=await PDFDocument.load(bytes);assert.ok(doc.getPageCount()>1);
   const {spawnSync}=require('node:child_process');const extracted=spawnSync('pdftotext',['-layout','-','-'],{input:bytes});
   if(extracted.error?.code==='ENOENT'){t.diagnostic('pdftotext unavailable; visual text extraction check omitted');return;}
-  assert.equal(extracted.status,0);const text=extracted.stdout.toString();assert.match(text,/3\.00/);assert.doesNotMatch(text,/0\.00/);assert.match(text,/X100/);assert.match(text,/\bB\b/);assert.match(text,/\bL\b/);assert.doesNotMatch(text,/\bBaru\b|\bLama\b/);assert.match(text,/001234/);assert.match(text,/OLD123/);assert.match(text,/NEW456/);
+  assert.equal(extracted.status,0);const text=extracted.stdout.toString();assert.match(text,/3\.00/);assert.doesNotMatch(text,/0\.00/);assert.match(text,/X100/);assert.match(text,/\bB\b/);assert.match(text,/\bL\b/);assert.doesNotMatch(text.split('\n').filter(line=>/^\s*\d+\s+Customer/.test(line)).join('\n'),/\bBaru\b|\bLama\b/);assert.match(text,/001234/);assert.match(text,/OLD123/);assert.match(text,/NEW456/);
+  const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');const task=getDocument({data:new Uint8Array(bytes),useSystemFonts:true});try{const parsed=await task.promise;for(let n=1;n<=parsed.numPages;n++){const items=(await(await parsed.getPage(n)).getTextContent()).items,brand=items.find(x=>x.str==='Jenama'),condition=items.find(x=>x.str==='Baru/');assert.ok(condition.transform[4]<brand.transform[4]);const old=items.find(x=>x.str==='OLD123'),newer=items.find(x=>x.str==='NEW456');if(old){assert.ok(old.transform[4]>=509&&old.transform[4]<584);assert.ok(newer.transform[4]>=584&&newer.transform[4]<660);}}}finally{await task.destroy();}
   await fs.writeFile(path.join(os.tmpdir(),'jx-list-regression.pdf'),bytes);
 });
 

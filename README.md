@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.21.4**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.21.5**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -376,3 +376,7 @@ On the first startup of this version, existing products receive a Last Saved Dat
 ## Blank pending registration on Print List (2026.11.21.4)
 
 Print Queue's Print List PDF leaves No. Daftar Baru blank until a new number is entered in the queue. The current registration is printed under No. Daftar Lama only. Manually entered/draft new numbers print in the new-number column; completed record lists retain their saved final numbers. Printing does not change products or complete records.
+
+## Staff usability and Print List columns (2026.11.21.5)
+
+Select and select-all checkboxes are 28px. Success/error notices and dialog error messages disappear five seconds after the latest message; repeated actions show a fresh notice. Print List places narrow Baru/Lama before Jenama and widens both registration columns, with matching headers on every page.
