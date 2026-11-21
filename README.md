@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.21.6**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.21.7**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -384,3 +384,7 @@ Select and select-all checkboxes are 28px. Success/error notices and dialog erro
 ## Queue select-all and Complete Record sorting (2026.11.21.6)
 
 Print Queue uses the same large select-all checkbox as Products & Scan, including mixed selection state. Complete Record has clickable sort icons for all data columns; dates default newest first, numbers/fees sort numerically, and sorting applies across all matching records before pagination. Existing date filters and row selections are retained. Product/queue fixed date sequencing is unchanged.
+
+## Plain Complete Record sort headers (2026.11.21.7)
+
+Complete Record sort headers now use the same plain text and small-arrow styling as Products & Scan, with no filled button background or border. Sorting behavior is unchanged.
