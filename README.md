@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.23.3**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.23.4**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -416,3 +416,7 @@ Desktop queue search sits beside List Title; on phones it remains visible above 
 ## Direct Print List PDF download (2026.11.23.3)
 
 Print Queue → Print List downloads JX-Print-List-COMPANY-DATE.pdf directly without opening a PDF tab. Existing validation, pending queue saves and preview-only behavior are retained. The browser controls its download location; disable Chrome's “Ask where to save each file before downloading” for automatic saving to its Downloads folder.
+
+## Save List location picker (2026.11.23.4)
+
+Save List replaces Print List. Supported Chrome/Edge on localhost or HTTPS opens a Save As picker before generation; cancelling creates no file or completed record. Pending queue saves still finish before generating the PDF. Other browsers and plain HTTP LAN addresses use a normal PDF download; enable the browser's ask-for-download-location setting to choose a folder there. Queue search keeps only the custom clear ×.
