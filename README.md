@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.23.2**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.23.3**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -412,3 +412,7 @@ Desktop and phone Print Queue have a live search field with a clear × button. S
 ## Queue toolbar and back to top (2026.11.23.2)
 
 Desktop queue search sits beside List Title; on phones it remains visible above the queue. The search controls belong to a separate form and cannot submit Complete. Queue export/import is under Management → Backup & migration, collapsed by default. A small floating back-to-top arrow appears after scrolling down on all pages and respects reduced-motion preferences.
+
+## Direct Print List PDF download (2026.11.23.3)
+
+Print Queue → Print List downloads JX-Print-List-COMPANY-DATE.pdf directly without opening a PDF tab. Existing validation, pending queue saves and preview-only behavior are retained. The browser controls its download location; disable Chrome's “Ask where to save each file before downloading” for automatic saving to its Downloads folder.
