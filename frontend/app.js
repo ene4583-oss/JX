@@ -203,3 +203,5 @@ $('clear-all-records').onclick=()=>run(async()=>{
   document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());$('product-search').reset();$('import-form').reset();$('import-result').textContent='All records cleared. Choose your Excel file, check it and import again.';$('import-preview-rows').replaceChildren();$('complete-queue').textContent='Complete';renderConnectedDevices([]);phoneState();bulkQrCount();await products();printList();await loadPairs();await loadImports();message('Cleared '+result.removed.products+' products, '+result.removed.completed_forms+' completed forms and '+result.removed.imports+' uploads. You can now import your Excel file again.');
  }finally{button.disabled=false;}
 });
+
+const topButton=$('back-to-top');function updateTopButton(){topButton.hidden=window.scrollY<250||!!document.querySelector('dialog[open]');}window.addEventListener('scroll',updateTopButton,{passive:true});window.addEventListener('hashchange',updateTopButton);topButton.onclick=()=>{window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});};updateTopButton();

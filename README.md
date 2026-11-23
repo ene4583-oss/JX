@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.23.1**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.23.2**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -408,3 +408,7 @@ The working list now persists per user in browser local storage, so closing a ta
 ## Print Queue live search (2026.11.23.1)
 
 Desktop and phone Print Queue have a live search field with a clear × button. Search matches only queued products by partial name, registration (including pending new number), address, area, brand, model, serial, form type and capacity. Queue order, draft values, checkboxes, printing and completion are unchanged by searching; a visible match count explains that print/Complete still use checked queue items.
+
+## Queue toolbar and back to top (2026.11.23.2)
+
+Desktop queue search sits beside List Title; on phones it remains visible above the queue. The search controls belong to a separate form and cannot submit Complete. Queue export/import is under Management → Backup & migration, collapsed by default. A small floating back-to-top arrow appears after scrolling down on all pages and respects reduced-motion preferences.

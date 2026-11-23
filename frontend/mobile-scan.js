@@ -1,7 +1,7 @@
 'use strict';
 // Phone staff can scan, add products, review the shared queue and correct products.
 const phoneScanOnly=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-if(phoneScanOnly)document.body.classList.add('phone-scan-only');
+if(phoneScanOnly){document.body.classList.add('phone-scan-only');$('queue-search').after($('queue-search-field'));}
 const desktopProducts=products,desktopRoute=route,desktopScanProduct=scanProduct,desktopEditProduct=editProduct,desktopPrintList=printList,desktopQr=qr;
 function phoneProductCard(p,inQueue=false){
  const card=node('article',undefined,'panel phone-product');card.dataset.productId=p.id;card.append(node('h2',p.name));{const created=node('p');created.append(node('strong','Last Saved Date: '),node('span',JxTableSort.savedDate(p)));card.append(created);}
