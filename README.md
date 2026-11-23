@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.21.11**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.23.1**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -404,3 +404,7 @@ SQL backups contain products, completed records, settings and templates. Each br
 ## Keep the Products & Scan working list after moving (2026.11.21.11)
 
 The working list now persists per user in browser local storage, so closing a tab or opening a new tab no longer loses the imported list. Existing session lists migrate automatically. On first recovery, the queue-transfer workspace IDs are used; if absent, existing queued products seed the list. An explicitly stored empty list stays empty so completed/removed products do not reappear. The database product library is unchanged.
+
+## Print Queue live search (2026.11.23.1)
+
+Desktop and phone Print Queue have a live search field with a clear × button. Search matches only queued products by partial name, registration (including pending new number), address, area, brand, model, serial, form type and capacity. Queue order, draft values, checkboxes, printing and completion are unchanged by searching; a visible match count explains that print/Complete still use checked queue items.

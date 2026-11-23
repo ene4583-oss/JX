@@ -12,7 +12,7 @@ function phoneProductCard(p,inQueue=false){
  return card;
 }
 products=async function(){if(!phoneScanOnly)return desktopProducts();await loadRecent();const root=$('product-list');root.replaceChildren(...orderedProductRows([...recentProducts.values()]).map(p=>phoneProductCard(p)));$('customer-list').replaceChildren();$('product-pagination').hidden=true;};
-printList=function(){if(!phoneScanOnly)return desktopPrintList();const root=$('print-list');root.replaceChildren(...orderedQueueProducts().map(p=>phoneProductCard(p,true)));if(!selected.size)root.append(node('p','No products in the queue.'));};
+printList=function(){if(!phoneScanOnly)return desktopPrintList();const root=$('print-list'),rows=visibleQueueProducts();updateQueueSearchStatus(rows);root.replaceChildren(...rows.map(p=>phoneProductCard(p,true)));if(!rows.length)root.append(node('p',selected.size?'No matching products in Print Queue.':'No products in the queue.'));};
 route=async function(){if(phoneScanOnly&&auth?.authenticated){const params=new URLSearchParams(location.hash.slice(1));if(!params.has('product')&&!params.has('pair')&&!params.has('group')&&!['#products','#print'].includes(location.hash))history.replaceState(null,'',location.pathname+location.search+'#products');}return desktopRoute();};
 scanProduct=desktopScanProduct;
 editProduct=function(p){if(phoneScanOnly)document.body.classList.toggle('phone-new-product',!p);const result=desktopEditProduct(p);return result;};
