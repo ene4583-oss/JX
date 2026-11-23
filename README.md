@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.23.5**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.23.6**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -424,3 +424,7 @@ Save List replaces Print List. Supported Chrome/Edge on localhost or HTTPS opens
 ## PDF filename follows List Title (2026.11.23.5)
 
 Save List uses List Title as the default PDF filename in both the Save As picker and normal download. Blank titles use the company/date filename. Unicode titles are kept, while Windows-invalid characters and reserved filenames are made safe.
+
+## Print Queue descriptions (2026.11.23.6)
+
+Removed the introductory PDF/Complete explanation and the search explanation from Print Queue. Search match counts remain visible.
