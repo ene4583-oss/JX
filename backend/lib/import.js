@@ -81,7 +81,7 @@ async function commit(service, bytes, company, actor, {repairMissing=false,filen
       const merged={...previous};for(const [key,value]of Object.entries(details)){if(key.startsWith('source_')&&!Object.hasOwn(previous,'source_date'))continue;if(value!==''&&(latest||merged[key]==null||merged[key]===''))merged[key]=value;}
       if(Object.hasOwn(previous,'source_date')){if(latest)merged.old_reg=details.old_reg||previous.new_reg||previous.old_reg||'';else if(previous.new_reg)merged.old_reg=previous.new_reg;merged.new_reg='';}
       const restoredModel=latest?model:(existing[0].model||model),restoredIdentity=serial?hash([customer.id,normalized(brand),normalized(restoredModel),normalized(serial)].join('\n')):null;
-      if(JSON.stringify(merged)!==JSON.stringify(previous)||restoredModel!==existing[0].model){await service.q('UPDATE app_products SET model=?,identity_hash=?,details=?,version=version+1 WHERE id=?',[restoredModel,restoredIdentity,JSON.stringify(merged),product]);updated++;}
+      if(JSON.stringify(merged)!==JSON.stringify(previous)||restoredModel!==existing[0].model){await service.q('UPDATE app_products SET model=?,identity_hash=?,details=?,updated_at=updated_at,version=version+1 WHERE id=?',[restoredModel,restoredIdentity,JSON.stringify(merged),product]);updated++;}
 
     }
     touched.add(product);links.push({source:hash(fileHash+':'+row._row),product,created:!existing.length});

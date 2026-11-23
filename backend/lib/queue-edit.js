@@ -12,7 +12,7 @@ async function save(s,id,input,user){
  if(Object.hasOwn(patch.details||{},'stamping_fee')){const fee=text(patch.details,'stamping_fee',20);check(!fee||/^(?:0|[1-9]\d{0,6})(?:\.\d{1,2})?$/.test(fee),'Check the fee format.');}
  const customer=Object.fromEntries(['name','address','phone','area'].map(key=>[key,Object.hasOwn(patch,key)?patch[key]:current[key]]));
  const fields=Object.fromEntries(['product_type','brand','model','serial_no'].map(key=>[key,Object.hasOwn(patch,key)?patch[key]:current[key]]));
- await s.saveProduct(id,{...fields,company:current.company,customer_id:current.customer_id,customer,customer_version:current.customer_version,details,version:current.version},user);
+ await s.saveProduct(id,{...fields,company:current.company,customer_id:current.customer_id,customer,customer_version:current.customer_version,details,version:current.version},user,{preserveSavedDate:true});
  await s.q('INSERT INTO app_queue_drafts(product_id,new_reg,request_id,updated_by) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE new_reg=VALUES(new_reg),request_id=VALUES(request_id),updated_by=VALUES(updated_by)',[id,newReg,request,user]);
  return s.product(id);
 }

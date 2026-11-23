@@ -98,7 +98,7 @@ class Service {
     check(rows.length===ids.length,'Some selected products no longer exist. Refresh the QR selection.',404);
     return require('./qr-labels').generate(ids.map(id=>byId.get(id)),this.publicUrl);
   }
-  async saveProduct(existing, input, user) {
+  async saveProduct(existing, input, user, {preserveSavedDate=false} = {}) {
     check(input&&typeof input==='object'&&!Array.isArray(input),'Invalid product details.');
     const upper=keys=>Object.fromEntries(keys.map(k=>[k,text(input,k,150).toUpperCase()]));input={...input,...upper(['brand','model','serial_no'])};if(input.customer){check(typeof input.customer==='object'&&!Array.isArray(input.customer),'Invalid customer details.');const c=input.customer;input.customer=Object.fromEntries([['name',255],['address',2000],['phone',80],['area',150]].map(([k,max])=>[k,text(c,k,max).toUpperCase()]));}
     check(input.details==null||typeof input.details==='object'&&!Array.isArray(input.details),'Invalid product details.');
@@ -121,7 +121,7 @@ class Service {
       await this.q('INSERT INTO app_products(id,customer_id,company,product_type,brand,model,serial_no,identity_hash,details,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)', [productId, customer, company, type, brand, model, serial, identity, JSON.stringify(details), user]);
     } else {
       check(Number.isInteger(input.version), 'Reload the record.');
-      const result = await this.q('UPDATE app_products SET customer_id=?,company=?,product_type=?,brand=?,model=?,serial_no=?,identity_hash=?,details=?,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=? AND version=?', [customer, company, type, brand, model, serial, identity, JSON.stringify(details), productId, input.version]);
+      const result = await this.q('UPDATE app_products SET customer_id=?,company=?,product_type=?,brand=?,model=?,serial_no=?,identity_hash=?,details=?,updated_at='+ (preserveSavedDate?'updated_at':'CURRENT_TIMESTAMP') +',version=version+1 WHERE id=? AND version=?', [customer, company, type, brand, model, serial, identity, JSON.stringify(details), productId, input.version]);
       check(result.affectedRows === 1, 'This product changed. Reload it and try again.', 409);
     }
     await this.audit(user, existing ? 'product.update' : 'product.create', productId);
