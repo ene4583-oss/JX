@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.23.4**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.23.5**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -420,3 +420,7 @@ Print Queue → Print List downloads JX-Print-List-COMPANY-DATE.pdf directly wit
 ## Save List location picker (2026.11.23.4)
 
 Save List replaces Print List. Supported Chrome/Edge on localhost or HTTPS opens a Save As picker before generation; cancelling creates no file or completed record. Pending queue saves still finish before generating the PDF. Other browsers and plain HTTP LAN addresses use a normal PDF download; enable the browser's ask-for-download-location setting to choose a folder there. Queue search keeps only the custom clear ×.
+
+## PDF filename follows List Title (2026.11.23.5)
+
+Save List uses List Title as the default PDF filename in both the Save As picker and normal download. Blank titles use the company/date filename. Unicode titles are kept, while Windows-invalid characters and reserved filenames are made safe.
