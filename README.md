@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.24.6**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.24.7**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -447,8 +447,12 @@ Address corrections affect only the selected customer's same-name, same-old-addr
 
 Customer identity is name + address + Kawasan. Add/Edit Product and queue edits change only the current product, attaching it to the matching three-field customer or keeping a private customer record for a product-only contact correction. Existing shared customers are not mutated through product saves or Complete. Only Edit all products/customer Save updates the same old name/address/Kawasan group; other areas, addresses and names stay untouched. Matching an existing destination merges only that group. Legacy name/address customer keys are reused only when Kawasan also matches. Import repair can still fill a missing Kawasan from the same source data.
 
-## Jadual 6 / Jadual 7 from Yearly Record (2026.11.24.6)
+## Jadual 6 / Jadual 7 from Yearly Record (2026.11.24.7)
 
 Complete Record adds Print Jadual 6 (Baru) and Print Jadual 7 (Lama). Only saved Complete Record entries in the current date/search filters are used, across all pages; product library, import history and Print Queue are excluded. Each stamping occurrence remains its own entry. B/Baru/New maps to Jadual 6; L/Lama/Old to Jadual 7. Unknown conditions are never guessed and block both reports until corrected. Missing required fields block the affected report; review links open the original completed record. Trash records are excluded.
 
 The layouts were extracted only from the Jadual 6 and Jadual 7 sheets of the revised 2026 Yearly Record.xlsm, not the earlier Jadual Format workbook. Its existing static VBA mapping was inspected without executing macros: Perihal uses RecordList G (Brand), S/N is separate, Jadual 6 uses the final registration, and Jadual 7 shows old and final registration. Hidden columns, Perakuan No., quantity and repair-description columns are not added. The supplied statutory headings, visible column order/width ratios, A4 landscape margins, and centered wrapping are retained. Printed Jadual 6 and Jadual 7 PDFs add a thin black table grid around column headings and each record, repeated on every page. Liberation Sans provides Arial-compatible metrics, with the existing CJK font for names requiring it; licenses are included. Printing is read-only and regenerates from saved snapshots, so later live-product edits cannot rewrite historical report values.
+
+## Reconnecting devices (2026.11.24.7)
+
+Connection loss pauses shared-device writes and shows a persistent Reconnect button. Reconnecting replaces local scanned/queue lists and drafts with the server group snapshot. Joining an existing group never uploads the joining browser’s old lists. Only the creator of a new group seeds its initial list. Offline outbox operations are discarded, including older-version outboxes; interrupted edits must be checked and entered again after reconnecting. Explicitly unpaired devices must scan a fresh host group QR.
