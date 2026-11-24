@@ -57,7 +57,7 @@ document.addEventListener('focusout',()=>setTimeout(()=>{if(groupNeedsPrintRende
 window.addEventListener('focus',()=>{if(auth?.authenticated)run(pollDeviceGroup);});
 
 function refreshSharedCustomerCaches(product){
- const shared={name:product.name,address:product.address,area:product.area,phone:product.phone,customer_version:product.customer_version};let changed=false;
+ const shared={name:product.name,address:product.address,area:product.area,phone:product.phone,customer_version:product.customer_version};let changed=false;for(const map of [recentProducts,selected]){const local=map.get(product.id);if(local&&local.customer_id!==product.customer_id&&Number(product.version)>=Number(local.version)){if(typeof queueEdits!=='undefined'&&(queueEdits.has(product.id)||queueInFlight.has(product.id)))continue;map.set(product.id,{...local,...product});changed=true;}}
  for(const map of [recentProducts,selected])for(const [id,item]of map)if(item.customer_id===product.customer_id&&Number(product.customer_version)>=Number(item.customer_version||0)){
  if(typeof queueEdits!=='undefined'&&(queueEdits.has(id)||queueInFlight.has(id)))continue;const draft=map===selected?productOverrides.get(id):null;if(draft&&['name','address','phone','area'].some(key=>Object.hasOwn(draft,key)))continue;
  if(Object.keys(shared).some(key=>item[key]!==shared[key]))changed=true;map.set(id,{...item,...shared});if(map===selected&&productOverrides.has(id)){const patch={...productOverrides.get(id)};for(const key of ['name','address','phone','area'])if(Object.hasOwn(patch,key))patch[key]=shared[key];productOverrides.set(id,patch);}

@@ -189,3 +189,12 @@ CREATE TABLE IF NOT EXISTS app_record_trash (
  deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  INDEX trash_date(deleted_at)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_customer_merges (
+ source_id VARCHAR(36) PRIMARY KEY,
+ target_id VARCHAR(36) NOT NULL,
+ source_snapshot JSON NOT NULL,
+ merged_by VARCHAR(36) NOT NULL,
+ merged_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX merge_target(target_id)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

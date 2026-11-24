@@ -27,7 +27,7 @@ class Service {
     return {...await this.one('SELECT * FROM app_customers WHERE id=?', [customerId]),newly_created:true};
   }
   async createManualCustomer(input,user){const customer=await this.createCustomer(input,user);await this.q('INSERT IGNORE INTO app_manual_customers(customer_id) VALUES (?)',[customer.id]);return customer;}
-  async customer(customerId) { return this.one('SELECT * FROM app_customers WHERE id=? AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id)', [customerId]); }
+  async customer(customerId) {for(let depth=0;depth<20;depth++){const rows=await this.q('SELECT target_id FROM app_customer_merges WHERE source_id=?',[customerId]);if(!rows.length)return this.one('SELECT * FROM app_customers WHERE id=? AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id)',[customerId]);customerId=rows[0].target_id;}throw new HttpError(409,'Customer changed. Reload its latest details.');}
   async customers(q) {
     check(q.length <= 100, 'Search text is too long.');
     return this.q('SELECT * FROM app_customers WHERE NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) AND (name LIKE ? OR phone LIKE ? OR address LIKE ?) ORDER BY updated_at DESC LIMIT 100', [`%${q}%`, `%${q}%`, `%${q}%`]);
@@ -35,18 +35,17 @@ class Service {
   async updateCustomer(customerId, input, user, {propagateAddress=true} = {}) {
     const name=text(input,'name',255).toUpperCase(),address=text(input,'address',2000).toUpperCase();
     check(name,'Enter the customer name.');check(Number.isInteger(input.version),'Reload the record.');
-    const before=await this.customer(customerId),oldAddress=normalized(before.address),shareAddress=propagateAddress&&!!oldAddress&&address!==before.address;
-    const rows=await this.q("SELECT * FROM app_customers WHERE "+(shareAddress?"UPPER(REGEXP_REPLACE(TRIM(address),'[[:space:]]+',' '))=?":"id=?")+" AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) ORDER BY id FOR UPDATE",[shareAddress?oldAddress:customerId]);
+    const before=await this.customer(customerId);check(before.id===customerId,'Customer was merged. Reopen its latest details before saving.',409);const oldAddress=normalized(before.address),shareAddress=propagateAddress&&!!oldAddress&&address!==before.address;
+    const rows=await this.q("SELECT * FROM app_customers WHERE "+(shareAddress?"CAST(UPPER(REGEXP_REPLACE(TRIM(address),'[[:space:]]+',' ')) AS BINARY)=CAST(? AS BINARY) AND CAST(UPPER(REGEXP_REPLACE(TRIM(name),'[[:space:]]+',' ')) AS BINARY)=CAST(? AS BINARY)":"id=?")+" AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) ORDER BY id FOR UPDATE",shareAddress?[oldAddress,normalized(before.name)]:[customerId]);
     const current=rows.find(row=>row.id===customerId);check(current&&current.version===input.version,'This customer changed. Reload it and try again.',409);
     const planned=rows.map(row=>({...row,address,name:row.id===customerId?name:row.name,area:row.id===customerId?text(input,'area',150).toUpperCase():row.area,phone:row.id===customerId?text(input,'phone',80).toUpperCase():row.phone}));
-    const hashes=new Set();for(const row of planned){const identity=normalized(row.name)+'\n'+normalized(row.address),canonical=hash(identity);const duplicates=await this.q('SELECT id FROM app_customers WHERE identity_hash=? AND id<>?',[canonical,row.id]);
-      // An address correction may converge on an existing customer. Keep IDs and products;
-      // retain a stable alias key instead of blocking the correction or merging branches.
-      row.identity_hash=duplicates.length||hashes.has(canonical)?hash(identity+'\ncustomer:'+row.id):canonical;hashes.add(row.identity_hash);
+    const affected=[],bySource=new Map();for(const row of planned){const canonical=hash(normalized(row.name)+'\n'+normalized(row.address)),duplicates=await this.q("SELECT * FROM app_customers WHERE CAST(UPPER(REGEXP_REPLACE(TRIM(name),'[[:space:]]+',' ')) AS BINARY)=CAST(? AS BINARY) AND CAST(UPPER(REGEXP_REPLACE(TRIM(address),'[[:space:]]+',' ')) AS BINARY)=CAST(? AS BINARY) AND id<>? ORDER BY (identity_hash=?) DESC,id FOR UPDATE",[normalized(row.name),normalized(row.address),row.id,canonical]);
+      if(duplicates.length){const target=await this.customer(duplicates[0].id),merged=await require('./customer-merge').merge(this,rows.find(item=>item.id===row.id),target,user);affected.push(merged);bySource.set(row.id,merged);continue;}
+      const result=await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=?',[canonical,row.name,row.address,row.area,row.phone,row.id,row.version]);check(result.affectedRows===1,'This customer changed. Reload it and try again.',409);await this.audit(user,'customer.update',row.id);const saved=await this.customer(row.id);affected.push(saved);bySource.set(row.id,saved);
     }
-    const affected=[];for(const row of planned){const result=await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=?',[row.identity_hash,row.name,row.address,row.area,row.phone,row.id,row.version]);check(result.affectedRows===1,'This customer changed. Reload it and try again.',409);await this.audit(user,'customer.update',row.id);affected.push(await this.customer(row.id));}
-    return {...affected.find(row=>row.id===customerId),affected_customers:affected};
+    const final=new Map();for(const item of affected){const prior=final.get(item.id)||{};final.set(item.id,{...await this.customer(item.id),merged_customer_ids:[...new Set([...(prior.merged_customer_ids||[]),...(item.merged_customer_ids||[])])],product_versions:{...prior.product_versions,...item.product_versions}});}return {...final.get(bySource.get(customerId).id),affected_customers:[...final.values()]};
   }
+
   async customerDeletionInfo(customerId,user){
     check(user.role==='ADMIN','Administrator access is required.',403);
     const c=await this.customer(customerId),count=await this.one('SELECT COUNT(*) AS products FROM app_products WHERE customer_id=?',[customerId]);
@@ -110,12 +109,12 @@ class Service {
     const upper=keys=>Object.fromEntries(keys.map(k=>[k,text(input,k,150).toUpperCase()]));input={...input,...upper(['brand','model','serial_no'])};if(input.customer){check(typeof input.customer==='object'&&!Array.isArray(input.customer),'Invalid customer details.');const c=input.customer;input.customer=Object.fromEntries([['name',255],['address',2000],['phone',80],['area',150]].map(([k,max])=>[k,text(c,k,max).toUpperCase()]));}
     check(input.details==null||typeof input.details==='object'&&!Array.isArray(input.details),'Invalid product details.');
     if(input.details)input.details={...input.details,...Object.fromEntries(['new_reg','old_reg','last_reg','capacity','manufacturer','notes','last_branch'].filter(k=>Object.hasOwn(input.details,k)).map(k=>[k,text(input.details,k,k==='notes'?1000:200).toUpperCase()]))};
-    const originalProduct=existing?await this.product(existing):null;
+    const originalProduct=existing?await this.product(existing):null;let saveVersion=input.version;if(existing){const locked=await this.one('SELECT version FROM app_products WHERE id=? FOR UPDATE',[existing]);check(locked.version===input.version,'This product changed. Reload it and try again.',409);}
     let customerChanges=[];let customer = text(input, 'customer_id', 36);
     if (!customer) {
       check(input.customer && typeof input.customer === 'object' && !Array.isArray(input.customer), 'Select or enter a customer.');
       customer = (await this.createCustomer(input.customer, user)).id;
-    } else {const current=await this.customer(customer);if(input.customer&&Object.hasOwn(input,'customer_version')){check(Number.isInteger(input.customer_version)&&current.version===input.customer_version,'Customer changed. Reload before saving.',409);const next=Object.fromEntries(['name','address','area','phone'].map(k=>[k,String(input.customer[k]??'').toUpperCase()]));if(Object.keys(next).some(k=>current[k]!==next[k]))customerChanges=(await this.updateCustomer(customer,{...next,version:current.version},user)).affected_customers;}}
+    } else {const current=await this.customer(customer);customer=current.id;if(input.customer&&Object.hasOwn(input,'customer_version')){check(Number.isInteger(input.customer_version)&&current.version===input.customer_version,'Customer changed. Reload before saving.',409);const next=Object.fromEntries(['name','address','area','phone'].map(k=>[k,String(input.customer[k]??'').toUpperCase()]));if(Object.keys(next).some(k=>current[k]!==next[k])){const changed=await this.updateCustomer(customer,{...next,version:current.version},user);customer=changed.id;customerChanges=changed.affected_customers;for(const c of customerChanges)if(existing&&c.product_versions?.[existing]!=null)saveVersion=c.product_versions[existing];}}}
     const company = text(input, 'company', 3), type = text(input, 'product_type', 20), brand = text(input, 'brand', 150), model = text(input, 'model', 150), serial = text(input, 'serial_no', 150);
     check(formats.valid(company, type), 'Choose DE / MCM and a valid product type.'); check(brand, 'Enter the brand.');
     let identity = serial ? hash([customer, normalized(brand), normalized(model), normalized(serial)].join('\n')) : null;
@@ -129,7 +128,7 @@ class Service {
       await this.q('INSERT INTO app_products(id,customer_id,company,product_type,brand,model,serial_no,identity_hash,details,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)', [productId, customer, company, type, brand, model, serial, identity, JSON.stringify(details), user]);
     } else {
       check(Number.isInteger(input.version), 'Reload the record.');
-      const result = await this.q('UPDATE app_products SET customer_id=?,company=?,product_type=?,brand=?,model=?,serial_no=?,identity_hash=?,details=?,updated_at='+ (preserveSavedDate?'updated_at':'CURRENT_TIMESTAMP') +',version=version+1 WHERE id=? AND version=?', [customer, company, type, brand, model, serial, identity, JSON.stringify(details), productId, input.version]);
+      const result = await this.q('UPDATE app_products SET customer_id=?,company=?,product_type=?,brand=?,model=?,serial_no=?,identity_hash=?,details=?,updated_at='+ (preserveSavedDate?'updated_at':'CURRENT_TIMESTAMP') +',version=version+1 WHERE id=? AND version=?', [customer, company, type, brand, model, serial, identity, JSON.stringify(details), productId, saveVersion]);
       check(result.affectedRows === 1, 'This product changed. Reload it and try again.', 409);
     }
     await this.audit(user, existing ? 'product.update' : 'product.create', productId);
