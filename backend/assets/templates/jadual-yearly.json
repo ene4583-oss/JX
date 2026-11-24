@@ -1,0 +1,127 @@
+{
+  "source": "2026 Yearly Record.xlsm",
+  "sha256": "6a5e75b2343a222a4549cc96b73882f1afdc12f6858647d18a26e702a7b46b5f",
+  "layouts": {
+    "6": {
+      "sheet": "Jadual 6",
+      "header": [
+        "JADUAL 6",
+        "AKTA TIMBANG DAN SUKAT 1972",
+        "PERATURAN-PERATURAN TIMBANG DAN SUKAT",
+        "(Peraturan 35)",
+        "DAFTAR TIMBANG, SUKAT DAN ALAT TIMBANG DAN SUKAT YANG DIJUAL/DIBUAT"
+      ],
+      "columns": [
+        {
+          "column": "A",
+          "heading": "Tarikh",
+          "width": 12.5703125
+        },
+        {
+          "column": "B",
+          "heading": "Perihal Timbang sukat dan Alat Timbang dan Sukat",
+          "width": 22.85546875
+        },
+        {
+          "column": "C",
+          "heading": "S/N",
+          "width": 14.28515625
+        },
+        {
+          "column": "D",
+          "heading": "Kapasiti",
+          "width": 12.5703125
+        },
+        {
+          "column": "F",
+          "heading": "No. Daftar",
+          "width": 14.42578125
+        },
+        {
+          "column": "H",
+          "heading": "Nama Pembeli",
+          "width": 30.5703125
+        },
+        {
+          "column": "I",
+          "heading": "Alamat",
+          "width": 35.42578125
+        }
+      ],
+      "margins": {
+        "left": 17.007874015748033,
+        "right": 17.007874015748033,
+        "top": 76.53543307086615,
+        "bottom": 53.85826771653544,
+        "header": 14.173228346456694,
+        "footer": 22.677165354330707
+      },
+      "headerHeight": 45.0,
+      "fontSize": 11,
+      "borders": false
+    },
+    "7": {
+      "sheet": "Jadual 7",
+      "header": [
+        "JADUAL 7",
+        "AKTA TIMBANG DAN SUKAT 1972",
+        "PERATURAN-PERATURAN TIMBANG DAN SUKAT 1981",
+        "(Peraturan 35)",
+        "DAFTAR TIMBANG, SUKAT DAN ALAT TIMBANG DAN SUKAT YANG DIBAIKI"
+      ],
+      "columns": [
+        {
+          "column": "A",
+          "heading": "Tarikh",
+          "width": 12.5703125
+        },
+        {
+          "column": "B",
+          "heading": "Perihal Timbang sukat dan Alat Timbang dan Sukat",
+          "width": 20.0
+        },
+        {
+          "column": "C",
+          "heading": "S/N",
+          "width": 15.140625
+        },
+        {
+          "column": "D",
+          "heading": "Kapasiti",
+          "width": 11.28515625
+        },
+        {
+          "column": "E",
+          "heading": "No. Daftar Lama",
+          "width": 14.0
+        },
+        {
+          "column": "F",
+          "heading": "No. Daftar Baru",
+          "width": 13.28515625
+        },
+        {
+          "column": "H",
+          "heading": "Nama Pemunya",
+          "width": 24.28515625
+        },
+        {
+          "column": "I",
+          "heading": "Alamat",
+          "width": 31.5703125
+        }
+      ],
+      "margins": {
+        "left": 17.007874015748033,
+        "right": 17.007874015748033,
+        "top": 76.53543307086615,
+        "bottom": 53.85826771653544,
+        "header": 14.173228346456694,
+        "footer": 22.677165354330707
+      },
+      "headerHeight": 45.0,
+      "fontSize": 11,
+      "borders": false
+    }
+  }
+}
