@@ -32,13 +32,16 @@ class Service {
     check(q.length <= 100, 'Search text is too long.');
     return this.q('SELECT * FROM app_customers WHERE NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) AND (name LIKE ? OR phone LIKE ? OR address LIKE ?) ORDER BY updated_at DESC LIMIT 100', [`%${q}%`, `%${q}%`, `%${q}%`]);
   }
-  async updateCustomer(customerId, input, user) {
-    const name = text(input, 'name', 255).toUpperCase(), address = text(input, 'address', 2000).toUpperCase();
-    check(name, 'Enter the customer name.'); check(Number.isInteger(input.version), 'Reload the record.');
-    const result = await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=? AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id)', [hash(normalized(name) + '\n' + normalized(address)), name, address, text(input, 'area', 150).toUpperCase(), text(input, 'phone', 80).toUpperCase(), customerId, input.version]);
-    check(result.affectedRows === 1, 'This customer changed. Reload it and try again.', 409);
-    await this.audit(user, 'customer.update', customerId);
-    return this.one('SELECT * FROM app_customers WHERE id=?', [customerId]);
+  async updateCustomer(customerId, input, user, {propagateAddress=true} = {}) {
+    const name=text(input,'name',255).toUpperCase(),address=text(input,'address',2000).toUpperCase();
+    check(name,'Enter the customer name.');check(Number.isInteger(input.version),'Reload the record.');
+    const before=await this.customer(customerId),oldAddress=normalized(before.address),shareAddress=propagateAddress&&!!oldAddress&&address!==before.address;
+    const rows=await this.q("SELECT * FROM app_customers WHERE "+(shareAddress?"UPPER(REGEXP_REPLACE(TRIM(address),'[[:space:]]+',' '))=?":"id=?")+" AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) ORDER BY id FOR UPDATE",[shareAddress?oldAddress:customerId]);
+    const current=rows.find(row=>row.id===customerId);check(current&&current.version===input.version,'This customer changed. Reload it and try again.',409);
+    const planned=rows.map(row=>({...row,address,name:row.id===customerId?name:row.name,area:row.id===customerId?text(input,'area',150).toUpperCase():row.area,phone:row.id===customerId?text(input,'phone',80).toUpperCase():row.phone}));
+    const hashes=new Set();for(const row of planned){row.identity_hash=hash(normalized(row.name)+'\n'+normalized(row.address));check(!hashes.has(row.identity_hash),'This change would duplicate another customer. No addresses were changed.',409);hashes.add(row.identity_hash);const duplicates=await this.q('SELECT id FROM app_customers WHERE identity_hash=? AND id<>?',[row.identity_hash,row.id]);check(!duplicates.length,'Another customer already has this name and new address. No addresses were changed.',409);}
+    const affected=[];for(const row of planned){const result=await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=?',[row.identity_hash,row.name,row.address,row.area,row.phone,row.id,row.version]);check(result.affectedRows===1,'This customer changed. Reload it and try again.',409);await this.audit(user,'customer.update',row.id);affected.push(await this.customer(row.id));}
+    return {...affected.find(row=>row.id===customerId),affected_customers:affected};
   }
   async customerDeletionInfo(customerId,user){
     check(user.role==='ADMIN','Administrator access is required.',403);
@@ -104,11 +107,11 @@ class Service {
     check(input.details==null||typeof input.details==='object'&&!Array.isArray(input.details),'Invalid product details.');
     if(input.details)input.details={...input.details,...Object.fromEntries(['new_reg','old_reg','last_reg','capacity','manufacturer','notes','last_branch'].filter(k=>Object.hasOwn(input.details,k)).map(k=>[k,text(input.details,k,k==='notes'?1000:200).toUpperCase()]))};
     if(existing)await this.product(existing);
-    let customer = text(input, 'customer_id', 36);
+    let customerChanges=[];let customer = text(input, 'customer_id', 36);
     if (!customer) {
       check(input.customer && typeof input.customer === 'object' && !Array.isArray(input.customer), 'Select or enter a customer.');
       customer = (await this.createCustomer(input.customer, user)).id;
-    } else {const current=await this.customer(customer);if(input.customer&&Object.hasOwn(input,'customer_version')){check(Number.isInteger(input.customer_version)&&current.version===input.customer_version,'Customer changed. Reload before saving.',409);const next=Object.fromEntries(['name','address','area','phone'].map(k=>[k,String(input.customer[k]??'').toUpperCase()]));if(Object.keys(next).some(k=>current[k]!==next[k]))await this.updateCustomer(customer,{...next,version:current.version},user);}}
+    } else {const current=await this.customer(customer);if(input.customer&&Object.hasOwn(input,'customer_version')){check(Number.isInteger(input.customer_version)&&current.version===input.customer_version,'Customer changed. Reload before saving.',409);const next=Object.fromEntries(['name','address','area','phone'].map(k=>[k,String(input.customer[k]??'').toUpperCase()]));if(Object.keys(next).some(k=>current[k]!==next[k]))customerChanges=(await this.updateCustomer(customer,{...next,version:current.version},user)).affected_customers;}}
     const company = text(input, 'company', 3), type = text(input, 'product_type', 20), brand = text(input, 'brand', 150), model = text(input, 'model', 150), serial = text(input, 'serial_no', 150);
     check(formats.valid(company, type), 'Choose DE / MCM and a valid product type.'); check(brand, 'Enter the brand.');
     const identity = serial ? hash([customer, normalized(brand), normalized(model), normalized(serial)].join('\n')) : null;
@@ -125,7 +128,7 @@ class Service {
       check(result.affectedRows === 1, 'This product changed. Reload it and try again.', 409);
     }
     await this.audit(user, existing ? 'product.update' : 'product.create', productId);
-    return this.product(productId);
+    return {...await this.product(productId),...(customerChanges.length?{customer_changes:customerChanges}:{})};
   }
   async qr(productId) {
     const product = await this.product(productId), link = this.publicUrl + '/#product=' + productId;
