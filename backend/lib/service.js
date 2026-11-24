@@ -15,16 +15,20 @@ class Service {
     try { await conn.beginTransaction(); const result = await action(new Service(conn, this.publicUrl)); await conn.commit(); return result; }
     catch (error) { await conn.rollback(); throw error; } finally { conn.release(); }
   }
-  async createCustomer(input, user) {
-    const name = text(input, 'name', 255), address = text(input, 'address', 2000);
-    check(name, 'Enter the customer name.');
-    const identity = hash(normalized(name) + '\n' + normalized(address));
-    const existing = await this.q('SELECT * FROM app_customers WHERE identity_hash=?', [identity]);
-    if (existing.length) {const deleted=await this.q('SELECT customer_id FROM app_deleted_customers WHERE customer_id=?',[existing[0].id]);check(!deleted.length,'This customer was deleted. An administrator can restore it from Deleted customers.',409);return existing[0];}
-    const customerId = id();
-    await this.q('INSERT INTO app_customers(id,identity_hash,name,address,area,phone,created_by) VALUES (?,?,?,?,?,?,?)', [customerId, identity, name, address, text(input, 'area', 150), text(input, 'phone', 80), user]);
-    await this.audit(user, 'customer.create', customerId);
-    return {...await this.one('SELECT * FROM app_customers WHERE id=?', [customerId]),newly_created:true};
+  async createCustomer(input, user, {fillMissingArea=false} = {}) {
+    const name=text(input,'name',255),address=text(input,'address',2000),area=text(input,'area',150),phone=text(input,'phone',80);check(name,'Enter the customer name.');
+    const key=require('./customer-key'),identity=key.identity({name,address,area}),legacy=hash(normalized(name)+'\n'+normalized(address)),blank=key.identity({name,address,area:''});
+    const existing=await this.q('SELECT * FROM app_customers WHERE identity_hash IN (?,?,?) AND '+key.sql('name')+'=CAST(? AS BINARY) AND '+key.sql('address')+'=CAST(? AS BINARY) AND ('+key.sql('area')+'=CAST(? AS BINARY)'+(fillMissingArea?" OR TRIM(area)=''":'')+') ORDER BY (identity_hash=?) DESC,id LIMIT 1',[identity,legacy,fillMissingArea?blank:identity,normalized(name),normalized(address),normalized(area),identity]);
+    if(existing.length){const current=existing[0],deleted=await this.q('SELECT customer_id FROM app_deleted_customers WHERE customer_id=?',[current.id]);check(!deleted.length,'This customer was deleted. An administrator can restore it from Deleted customers.',409);
+      if(fillMissingArea&&!current.area.trim()&&area){await this.q('UPDATE app_customers SET identity_hash=?,area=?,version=version+1 WHERE id=?',[identity,area,current.id]);return this.customer(current.id);}
+      if(current.identity_hash!==identity)await this.q('UPDATE app_customers SET identity_hash=?,updated_at=updated_at WHERE id=?',[identity,current.id]);return {...current,identity_hash:identity};
+    }
+    const customerId=id();await this.q('INSERT INTO app_customers(id,identity_hash,name,address,area,phone,created_by) VALUES (?,?,?,?,?,?,?)',[customerId,identity,name,address,area,phone,user]);await this.audit(user,'customer.create',customerId);return {...await this.customer(customerId),newly_created:true};
+  }
+  async productCustomer(current,next,user){
+    const key=require('./customer-key');if(key.identity(current)!==key.identity(next))return this.createCustomer(next,user);
+    // A product-only correction must not mutate a shared customer's contact/format fields.
+    const customerId=id(),identity=hash(key.identity(next)+'\nproduct-customer:'+customerId);await this.q('INSERT INTO app_customers(id,identity_hash,name,address,area,phone,created_by) VALUES (?,?,?,?,?,?,?)',[customerId,identity,next.name,next.address,next.area,next.phone,user]);await this.audit(user,'customer.create',customerId);return this.customer(customerId);
   }
   async createManualCustomer(input,user){const customer=await this.createCustomer(input,user);await this.q('INSERT IGNORE INTO app_manual_customers(customer_id) VALUES (?)',[customer.id]);return customer;}
   async customer(customerId) {for(let depth=0;depth<20;depth++){const rows=await this.q('SELECT target_id FROM app_customer_merges WHERE source_id=?',[customerId]);if(!rows.length)return this.one('SELECT * FROM app_customers WHERE id=? AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id)',[customerId]);customerId=rows[0].target_id;}throw new HttpError(409,'Customer changed. Reload its latest details.');}
@@ -32,18 +36,14 @@ class Service {
     check(q.length <= 100, 'Search text is too long.');
     return this.q('SELECT * FROM app_customers WHERE NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) AND (name LIKE ? OR phone LIKE ? OR address LIKE ?) ORDER BY updated_at DESC LIMIT 100', [`%${q}%`, `%${q}%`, `%${q}%`]);
   }
-  async updateCustomer(customerId, input, user, {propagateAddress=true} = {}) {
-    const name=text(input,'name',255).toUpperCase(),address=text(input,'address',2000).toUpperCase();
-    check(name,'Enter the customer name.');check(Number.isInteger(input.version),'Reload the record.');
-    const before=await this.customer(customerId);check(before.id===customerId,'Customer was merged. Reopen its latest details before saving.',409);const oldAddress=normalized(before.address),shareAddress=propagateAddress&&!!oldAddress&&address!==before.address;
-    const rows=await this.q("SELECT * FROM app_customers WHERE "+(shareAddress?"CAST(UPPER(REGEXP_REPLACE(TRIM(address),'[[:space:]]+',' ')) AS BINARY)=CAST(? AS BINARY) AND CAST(UPPER(REGEXP_REPLACE(TRIM(name),'[[:space:]]+',' ')) AS BINARY)=CAST(? AS BINARY)":"id=?")+" AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) ORDER BY id FOR UPDATE",shareAddress?[oldAddress,normalized(before.name)]:[customerId]);
-    const current=rows.find(row=>row.id===customerId);check(current&&current.version===input.version,'This customer changed. Reload it and try again.',409);
-    const planned=rows.map(row=>({...row,address,name:row.id===customerId?name:row.name,area:row.id===customerId?text(input,'area',150).toUpperCase():row.area,phone:row.id===customerId?text(input,'phone',80).toUpperCase():row.phone}));
-    const affected=[],bySource=new Map();for(const row of planned){const canonical=hash(normalized(row.name)+'\n'+normalized(row.address)),duplicates=await this.q("SELECT * FROM app_customers WHERE CAST(UPPER(REGEXP_REPLACE(TRIM(name),'[[:space:]]+',' ')) AS BINARY)=CAST(? AS BINARY) AND CAST(UPPER(REGEXP_REPLACE(TRIM(address),'[[:space:]]+',' ')) AS BINARY)=CAST(? AS BINARY) AND id<>? ORDER BY (identity_hash=?) DESC,id FOR UPDATE",[normalized(row.name),normalized(row.address),row.id,canonical]);
-      if(duplicates.length){const target=await this.customer(duplicates[0].id),merged=await require('./customer-merge').merge(this,rows.find(item=>item.id===row.id),target,user);affected.push(merged);bySource.set(row.id,merged);continue;}
-      const result=await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=?',[canonical,row.name,row.address,row.area,row.phone,row.id,row.version]);check(result.affectedRows===1,'This customer changed. Reload it and try again.',409);await this.audit(user,'customer.update',row.id);const saved=await this.customer(row.id);affected.push(saved);bySource.set(row.id,saved);
-    }
-    const final=new Map();for(const item of affected){const prior=final.get(item.id)||{};final.set(item.id,{...await this.customer(item.id),merged_customer_ids:[...new Set([...(prior.merged_customer_ids||[]),...(item.merged_customer_ids||[])])],product_versions:{...prior.product_versions,...item.product_versions}});}return {...final.get(bySource.get(customerId).id),affected_customers:[...final.values()]};
+  async updateCustomer(customerId,input,user,{propagateAddress=true}={}) {
+    const next=Object.fromEntries([['name',255],['address',2000],['area',150],['phone',80]].map(([field,max])=>[field,text(input,field,max).toUpperCase()]));check(next.name,'Enter the customer name.');check(Number.isInteger(input.version),'Reload the record.');
+    const before=await this.customer(customerId);check(before.id===customerId,'Customer was merged. Reopen its latest details before saving.',409);const key=require('./customer-key'),fields=['name','address','area'],match=fields.map(field=>key.sql(field)+'=CAST(? AS BINARY)').join(' AND '),active='NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id)';
+    const rows=await this.q('SELECT * FROM app_customers WHERE '+(propagateAddress?match:'id=?')+' AND '+active+' ORDER BY id FOR UPDATE',propagateAddress?fields.map(field=>normalized(before[field])):[customerId]);const source=rows.find(row=>row.id===customerId);check(source&&source.version===input.version,'This customer changed. Reload it and try again.',409);
+    const canonical=key.identity(next),matches=await this.q('SELECT * FROM app_customers WHERE '+match+' AND '+active+' ORDER BY (identity_hash=?) DESC,id FOR UPDATE',[...fields.map(field=>normalized(next[field])),canonical]);let target=matches[0]||source;
+    if(rows.some(row=>row.id===target.id)){await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=?',[canonical,next.name,next.address,next.area,next.phone,target.id]);await this.audit(user,'customer.update',target.id);target=await this.customer(target.id);}
+    const mergedIds=[],versions={};for(const row of rows){if(row.id===target.id)continue;const merged=await require('./customer-merge').merge(this,row,target,user);mergedIds.push(...merged.merged_customer_ids);Object.assign(versions,merged.product_versions);target=merged;}
+    const result={...await this.customer(target.id),merged_customer_ids:mergedIds,product_versions:versions};return {...result,affected_customers:[result]};
   }
 
   async customerDeletionInfo(customerId,user){
@@ -114,11 +114,11 @@ class Service {
     if (!customer) {
       check(input.customer && typeof input.customer === 'object' && !Array.isArray(input.customer), 'Select or enter a customer.');
       customer = (await this.createCustomer(input.customer, user)).id;
-    } else {const current=await this.customer(customer);customer=current.id;if(input.customer&&Object.hasOwn(input,'customer_version')){check(Number.isInteger(input.customer_version)&&current.version===input.customer_version,'Customer changed. Reload before saving.',409);const next=Object.fromEntries(['name','address','area','phone'].map(k=>[k,String(input.customer[k]??'').toUpperCase()]));if(Object.keys(next).some(k=>current[k]!==next[k])){const changed=await this.updateCustomer(customer,{...next,version:current.version},user);customer=changed.id;customerChanges=changed.affected_customers;for(const c of customerChanges)if(existing&&c.product_versions?.[existing]!=null)saveVersion=c.product_versions[existing];}}}
+    } else {const current=await this.customer(customer);customer=current.id;if(input.customer&&Object.hasOwn(input,'customer_version')){check(Number.isInteger(input.customer_version)&&current.version===input.customer_version,'Customer changed. Reload before saving.',409);const next=Object.fromEntries(['name','address','area','phone'].map(k=>[k,String(input.customer[k]??'').toUpperCase()]));if(Object.keys(next).some(k=>current[k]!==next[k]))customer=(await this.productCustomer(current,next,user)).id;}}
     const company = text(input, 'company', 3), type = text(input, 'product_type', 20), brand = text(input, 'brand', 150), model = text(input, 'model', 150), serial = text(input, 'serial_no', 150);
     check(formats.valid(company, type), 'Choose DE / MCM and a valid product type.'); check(brand, 'Enter the brand.');
     let identity = serial ? hash([customer, normalized(brand), normalized(model), normalized(serial)].join('\n')) : null;
-    if(existing&&identity){const duplicate=await this.q('SELECT id FROM app_products WHERE identity_hash=? AND id<>?',[identity,existing]);if(duplicate.length&&(originalProduct.customer_id!==customer||originalProduct.identity_hash===hash(identity+'\nproduct:'+existing)))identity=hash(identity+'\nproduct:'+existing);}
+    if(existing&&identity){const duplicate=await this.q('SELECT id FROM app_products WHERE identity_hash=? AND id<>?',[identity,existing]);if(duplicate.length&&((originalProduct.customer_id!==customer&&normalized(originalProduct.brand)===normalized(brand)&&normalized(originalProduct.model)===normalized(model)&&normalized(originalProduct.serial_no)===normalized(serial))||originalProduct.identity_hash===hash(identity+'\nproduct:'+existing)))identity=hash(identity+'\nproduct:'+existing);}
     check(input.details == null || typeof input.details === 'object' && !Array.isArray(input.details), 'Invalid product details.');
     const details = Object.fromEntries(Object.keys(formats.details).map(key => [key, require('./counterpoise').detailText(input.details || {}, key, key === 'notes' ? 1000 : 200)]));
     if (details.last_date) date(details.last_date);

@@ -58,3 +58,5 @@ test('late group responses cannot replace newer autosaved product or customer da
  const old=app.run("freshGroupProduct({id:'one',version:2,customer_version:1,name:'Old owner',details:{stamping_fee:'10'}})");assert.equal(old.version,3);assert.equal(old.details.stamping_fee,'20');
  const owner=app.run("freshGroupProduct({id:'one',version:3,customer_version:1,name:'Old owner',details:{stamping_fee:'20'}})");assert.equal(owner.name,'Latest owner');assert.equal(owner.customer_version,2);
 });
+
+test('a product reassigned to another Kawasan keeps its new customer even when the old customer version was higher',()=>{const app=runtime();app.context.selected=new Map([['one',{id:'one',customer_id:'old',version:3,customer_version:9,name:'OWNER',address:'ROAD',area:'RAUB'}]]);app.context.recentProducts=new Map();const incoming=app.run("freshGroupProduct({id:'one',customer_id:'new',version:4,customer_version:0,name:'OWNER',address:'ROAD',area:'BENTONG'})");assert.equal(incoming.customer_id,'new');assert.equal(incoming.area,'BENTONG');assert.equal(incoming.customer_version,0);});

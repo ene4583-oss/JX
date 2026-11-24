@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.24.3**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.24.4**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -442,3 +442,7 @@ Editing a customer's nonblank old address updates all active customers with that
 ## Customer matching and return to product form (2026.11.24.3, based on 2026.11.24.1)
 
 Address corrections affect only the selected customer's same-name, same-old-address branch. Other names or other addresses stay unchanged. If the requested name/address already exists, live products become linked to that existing customer. IDs, QR labels, instrument fields, dates and historical forms are preserved; the destination's contact details are retained. Original customer snapshots and redirects are recorded in app_customer_merges. Saving customer edits opened from Add/Edit Product returns to the same form without discarding instrument drafts. The 2026.11.24.1 Customer only selection behavior is retained.
+
+## Customer scope includes Kawasan (2026.11.24.4)
+
+Customer identity is name + address + Kawasan. Add/Edit Product and queue edits change only the current product, attaching it to the matching three-field customer or keeping a private customer record for a product-only contact correction. Existing shared customers are not mutated through product saves or Complete. Only Edit all products/customer Save updates the same old name/address/Kawasan group; other areas, addresses and names stay untouched. Matching an existing destination merges only that group. Legacy name/address customer keys are reused only when Kawasan also matches. Import repair can still fill a missing Kawasan from the same source data.

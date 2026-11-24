@@ -60,7 +60,7 @@ async function commit(service, bytes, company, actor, {repairMissing=false,filen
   const { rows, summary } = await parse(bytes); check(rows.length, 'No importable records.');
   let created = 0, updated = 0, history = 0;const touched=new Set(),links=[];
   for (const row of rows) {
-    const customer = await service.createCustomer({ name: row.Name, address: row.Address, area: row.Area, phone: row['Phone No.'] }, actor);
+    const customer = await service.createCustomer({ name: row.Name, address: row.Address, area: row.Area, phone: row['Phone No.'] }, actor,{fillMissingArea:true});
     if(row.Area||row['Phone No.'])await service.q("UPDATE app_customers SET area=IF(area='',?,area),phone=IF(phone='',?,phone),version=version+1 WHERE id=? AND ((area='' AND ?<>'') OR (phone='' AND ?<>''))",[row.Area,row['Phone No.'],customer.id,row.Area,row['Phone No.']]);
     if(customer.newly_created)await service.q('INSERT IGNORE INTO app_import_customers(customer_id) VALUES (?)',[customer.id]);
     const brand = row.Brand, model = row.Model, serial = row['S/No'];
