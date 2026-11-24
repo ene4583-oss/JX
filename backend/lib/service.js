@@ -39,7 +39,11 @@ class Service {
     const rows=await this.q("SELECT * FROM app_customers WHERE "+(shareAddress?"UPPER(REGEXP_REPLACE(TRIM(address),'[[:space:]]+',' '))=?":"id=?")+" AND NOT EXISTS(SELECT 1 FROM app_deleted_customers dc WHERE dc.customer_id=app_customers.id) ORDER BY id FOR UPDATE",[shareAddress?oldAddress:customerId]);
     const current=rows.find(row=>row.id===customerId);check(current&&current.version===input.version,'This customer changed. Reload it and try again.',409);
     const planned=rows.map(row=>({...row,address,name:row.id===customerId?name:row.name,area:row.id===customerId?text(input,'area',150).toUpperCase():row.area,phone:row.id===customerId?text(input,'phone',80).toUpperCase():row.phone}));
-    const hashes=new Set();for(const row of planned){row.identity_hash=hash(normalized(row.name)+'\n'+normalized(row.address));check(!hashes.has(row.identity_hash),'This change would duplicate another customer. No addresses were changed.',409);hashes.add(row.identity_hash);const duplicates=await this.q('SELECT id FROM app_customers WHERE identity_hash=? AND id<>?',[row.identity_hash,row.id]);check(!duplicates.length,'Another customer already has this name and new address. No addresses were changed.',409);}
+    const hashes=new Set();for(const row of planned){const identity=normalized(row.name)+'\n'+normalized(row.address),canonical=hash(identity);const duplicates=await this.q('SELECT id FROM app_customers WHERE identity_hash=? AND id<>?',[canonical,row.id]);
+      // An address correction may converge on an existing customer. Keep IDs and products;
+      // retain a stable alias key instead of blocking the correction or merging branches.
+      row.identity_hash=duplicates.length||hashes.has(canonical)?hash(identity+'\ncustomer:'+row.id):canonical;hashes.add(row.identity_hash);
+    }
     const affected=[];for(const row of planned){const result=await this.q('UPDATE app_customers SET identity_hash=?,name=?,address=?,area=?,phone=?,version=version+1 WHERE id=? AND version=?',[row.identity_hash,row.name,row.address,row.area,row.phone,row.id,row.version]);check(result.affectedRows===1,'This customer changed. Reload it and try again.',409);await this.audit(user,'customer.update',row.id);affected.push(await this.customer(row.id));}
     return {...affected.find(row=>row.id===customerId),affected_customers:affected};
   }
@@ -106,7 +110,7 @@ class Service {
     const upper=keys=>Object.fromEntries(keys.map(k=>[k,text(input,k,150).toUpperCase()]));input={...input,...upper(['brand','model','serial_no'])};if(input.customer){check(typeof input.customer==='object'&&!Array.isArray(input.customer),'Invalid customer details.');const c=input.customer;input.customer=Object.fromEntries([['name',255],['address',2000],['phone',80],['area',150]].map(([k,max])=>[k,text(c,k,max).toUpperCase()]));}
     check(input.details==null||typeof input.details==='object'&&!Array.isArray(input.details),'Invalid product details.');
     if(input.details)input.details={...input.details,...Object.fromEntries(['new_reg','old_reg','last_reg','capacity','manufacturer','notes','last_branch'].filter(k=>Object.hasOwn(input.details,k)).map(k=>[k,text(input.details,k,k==='notes'?1000:200).toUpperCase()]))};
-    if(existing)await this.product(existing);
+    const originalProduct=existing?await this.product(existing):null;
     let customerChanges=[];let customer = text(input, 'customer_id', 36);
     if (!customer) {
       check(input.customer && typeof input.customer === 'object' && !Array.isArray(input.customer), 'Select or enter a customer.');
@@ -114,7 +118,8 @@ class Service {
     } else {const current=await this.customer(customer);if(input.customer&&Object.hasOwn(input,'customer_version')){check(Number.isInteger(input.customer_version)&&current.version===input.customer_version,'Customer changed. Reload before saving.',409);const next=Object.fromEntries(['name','address','area','phone'].map(k=>[k,String(input.customer[k]??'').toUpperCase()]));if(Object.keys(next).some(k=>current[k]!==next[k]))customerChanges=(await this.updateCustomer(customer,{...next,version:current.version},user)).affected_customers;}}
     const company = text(input, 'company', 3), type = text(input, 'product_type', 20), brand = text(input, 'brand', 150), model = text(input, 'model', 150), serial = text(input, 'serial_no', 150);
     check(formats.valid(company, type), 'Choose DE / MCM and a valid product type.'); check(brand, 'Enter the brand.');
-    const identity = serial ? hash([customer, normalized(brand), normalized(model), normalized(serial)].join('\n')) : null;
+    let identity = serial ? hash([customer, normalized(brand), normalized(model), normalized(serial)].join('\n')) : null;
+    if(existing&&identity){const duplicate=await this.q('SELECT id FROM app_products WHERE identity_hash=? AND id<>?',[identity,existing]);if(duplicate.length&&(originalProduct.customer_id!==customer||originalProduct.identity_hash===hash(identity+'\nproduct:'+existing)))identity=hash(identity+'\nproduct:'+existing);}
     check(input.details == null || typeof input.details === 'object' && !Array.isArray(input.details), 'Invalid product details.');
     const details = Object.fromEntries(Object.keys(formats.details).map(key => [key, require('./counterpoise').detailText(input.details || {}, key, key === 'notes' ? 1000 : 200)]));
     if (details.last_date) date(details.last_date);

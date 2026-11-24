@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.24.1**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.24.2**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -435,6 +435,10 @@ Only creating/saving a product via Products & Scan advances its displayed Last S
 
 This version also restores a separate Print List button for PDF preview/printing alongside Save List. Save List indicates progress, re-enables after cancellation/failure and falls back to downloading if the browser denies its file picker. Script/style version URLs prevent old cached UI handlers after an update. On localhost Chrome normally offers a save-location picker; if unavailable, enable Chrome's ask-for-download-location setting for fallback downloads.
 
-## Shared address corrections (2026.11.24.1)
+## Shared address corrections (2026.11.24.2)
 
 Editing a customer's nonblank old address updates all active customers with that same address, ignoring case and whitespace differences. Other customers at a different address are kept even when the name is identical. Only the address is shared; other customers keep their names, phone numbers and areas. Blank addresses are never grouped. Duplicate identities or stale edits reject the whole transaction. Live product/queue caches refresh for every affected customer. Customer-only edits keep product save dates; QR IDs and historical completed records are preserved.
+
+## Correct to an address that already exists (2026.11.24.2)
+
+Customer address edits can now use an already-existing name/address without a duplicate error. Existing customer IDs, product IDs, QR labels, history and other branches remain intact; converging customer records keep a stable identity alias. Customer only in Edit Product selects the customer for the current product without resetting its ID, instrument fields or QR. Saving updates that same product. Add Product still supports selecting an existing customer for a genuinely new instrument.
