@@ -24,5 +24,6 @@ async function load(service,filters={}){
  if(chosen)check(total===chosen.size,'Some selected records were edited, moved or deleted. Clear the selection and select the current records again.');return {total,groups,unknown,problems,problemCounts};
 }
 function summary(report){return {total:report.total,jadual6:report.groups['6'].length,jadual7:report.groups['7'].length,unclassified:report.unknown.length,needs_review:report.problems.length,blocked:{'6':report.unknown.length>0||report.problemCounts['6']>0,'7':report.unknown.length>0||report.problemCounts['7']>0},issues:report.problems.slice(0,100).map(({job_id,created_by,product_id,date,name,issues,kind})=>({job_id,created_by,product_id,date,name,issues,kind}))};}
+async function selection(service,filters={}){const report=await load(service,filters);return {total:report.total,keys:[...report.groups['6'],...report.groups['7'],...report.unknown].map(row=>row.job_id+':'+row.product_id)};}
 async function print(service,kind,filters){check(['6','7'].includes(kind),'Choose Jadual 6 or Jadual 7.');const report=await service.transaction(s=>load(s,filters));const status=summary(report);check(!status.blocked[kind],'Review incomplete or unclassified Complete Records before printing Jadual '+kind+'.');check(report.groups[kind].length,'No '+(kind==='6'?'Baru':'Lama')+' Complete Records match these filters.');return require('./jadual-pdf').generate(kind,report.groups[kind]);}
-module.exports={category,entry,load,summary,print};
+module.exports={category,entry,load,summary,selection,print};

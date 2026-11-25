@@ -64,7 +64,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.25.1', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.25.2', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -133,6 +133,7 @@ async function apiApp(pool, config) {
   app.get('/api/jobs/:id/list.pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobList(req.params.id), 'stamping-list.pdf')));
   route('post','/api/jobs/complete',(s,r)=>require('./workflow').complete(s,r.body,r.user),true);
   route('get','/api/records',(s,r)=>require('./workflow').records(s,r.query));
+  route('get','/api/jadual/selection',(s,r)=>require('./jadual').selection(s,r.query),true);
   route('get','/api/jadual/summary',async(s,r)=>require('./jadual').summary(await require('./jadual').load(s,r.query)),true);
   app.get('/api/jadual/:kind.pdf',asyncCall(async(req,res)=>fileResponse(res,await require('./jadual').print(service,req.params.kind,req.query),'Jadual-'+req.params.kind+'.pdf')));
   route('post','/api/jadual/summary',async(s,r)=>require('./jadual').summary(await require('./jadual').load(s,{selection:r.body.selection})),true);
