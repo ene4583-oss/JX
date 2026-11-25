@@ -36,6 +36,7 @@ function harden(app, config) {
   app.use(express.json({ limit: '1mb' })); app.use(express.urlencoded({ extended: false, limit: '20kb' }));
 }
 function staticFiles(app) {
+  app.use((req,res,next)=>{if(req.path==='/'||req.path==='/index.html'||/^\/[^/]+\.(js|css)$/.test(req.path))res.set('Cache-Control','no-store');next();});
   app.get(['/', '/index.html'], (req, res) => res.sendFile(path.join(frontend, 'index.html')));
   for (const file of ['app.js', 'app.css','workflow.js','templates.js','qr-image.js','qr-worker.js','queue-sync.js','tiff-worker.js','atn-options.js','form-fields.js','customer-entry.js','group-sync.js','record-editor.js','mobile-scan.js','queue-editing.js','escpos.js','bluetooth-print.js','table-sort.js','queue-transfer.js','jadual.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
   for(const resource of ['cmaps','standard_fonts','wasm'])app.use('/vendor/pdfjs/'+resource,express.static(path.join(__dirname,'../node_modules/pdfjs-dist',resource),{dotfiles:'deny'}));
@@ -64,7 +65,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.25.3', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.25.4', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
