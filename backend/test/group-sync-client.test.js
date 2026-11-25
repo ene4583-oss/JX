@@ -9,7 +9,7 @@ const source=fs.readFileSync(path.join(__dirname,'../../frontend/group-sync.js')
 function runtime(storage=new Map()){
  const elements=new Map();
  const context=vm.createContext({URLSearchParams,URL,Map,Set,Promise,Error,JSON,setTimeout,clearTimeout,
-  lastDelivery:null,location:{hash:'',pathname:'/',search:'',origin:'http://test'},history:{replaceState(){}},
+  navigator:{userAgent:'Android',onLine:true},lastDelivery:null,location:{hash:'',pathname:'/',search:'',origin:'http://test'},history:{replaceState(){}},
   localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},
   document:{addEventListener(){}},window:{addEventListener(){}},
   $:key=>{if(!elements.has(key))elements.set(key,{onclick(){},textContent:''});return elements.get(key);},
@@ -53,3 +53,4 @@ test('late group responses cannot replace newer autosaved product or customer da
 });
 
 test('a product reassigned to another Kawasan keeps its new customer even when the old customer version was higher',()=>{const app=runtime();app.context.selected=new Map([['one',{id:'one',customer_id:'old',version:3,customer_version:9,name:'OWNER',address:'ROAD',area:'RAUB'}]]);app.context.recentProducts=new Map();const incoming=app.run("freshGroupProduct({id:'one',customer_id:'new',version:4,customer_version:0,name:'OWNER',address:'ROAD',area:'BENTONG'})");assert.equal(incoming.customer_id,'new');assert.equal(incoming.area,'BENTONG');assert.equal(incoming.customer_version,0);});
+test('computers schedule automatic snapshot reconnection while phones wait for an explicit reconnect',()=>{for(const [agent,expected]of [['Android',false],['Windows',true]]){const app=runtime();let scheduled=false;app.context.navigator.userAgent=agent;app.context.setTimeout=()=>{scheduled=true;return 1;};app.run('stopGroupSync=()=>{};saveDeviceGroup=()=>{};showReconnect=()=>{};pauseDeviceGroup()');assert.equal(scheduled,expected);assert.equal(app.run('activeDeviceGroup().hydrated'),false);assert.equal(app.run('groupOutbox(activeDeviceGroup()).length'),0);}});
