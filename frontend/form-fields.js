@@ -13,7 +13,7 @@ function detailControl(key,title,current=''){
  const wrap=node('label',title);wrap.dataset.formDetail=key;let input;
  const values=key.startsWith('check_')?['Ya','Tidak']:key==='instrument_kind'?null:options[key];
  if(values){input=node('select');input.append(new Option('Tidak diisi',''),...values.map(value=>new Option(value,value)));if(current&&!values.includes(current))input.append(new Option('Nilai tersimpan: '+current,current));}
- else{input=node(['notes','counterpoise_weights'].includes(key)?'textarea':'input');input.maxLength=key==='notes'?1000:key==='stamping_fee'?20:200;if(key==='stamping_fee'){input.type='number';input.min='0';input.step='.01';}}
+ else{input=node(['notes','counterpoise_weights'].includes(key)?'textarea':'input');input.maxLength=key==='notes'?1000:key==='stamping_fee'?20:200;if(key==='stamping_fee'){moneyInput(input);}}
  input.name='detail_'+key;input.setAttribute('aria-label',title);input.value=current;wrap.append(input);return wrap;
 }
 function arrangeFormFields(form){
