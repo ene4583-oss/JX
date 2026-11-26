@@ -90,3 +90,4 @@
 .jadual-review{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px;border:1px solid var(--line);background:#fff8e9;margin:6px 0}.jadual-review span{flex:1;min-width:160px;overflow-wrap:anywhere}.jadual-review button{flex:none}
 
 .reconnect-required{position:sticky;top:0;z-index:1000;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;background:#fff0db;border:2px solid #ae520c;color:#713407}.reconnect-required[hidden]{display:none}
+.offline-review-row{padding:10px;border:1px solid #cbd7cc;margin:8px 0}.offline-review-row pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;max-height:240px;overflow:auto}

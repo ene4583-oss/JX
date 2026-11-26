@@ -25,7 +25,7 @@ function errorHandler(error, req, res, next) {
   if (res.headersSent) return next(error);
   let status = error.status || 500, message = error.message;
   if (error.code === 'ER_DUP_ENTRY') { status = 409; message = 'This record already exists. Search for it and edit it.'; }
-  else if (error instanceof multer.MulterError) { status = 400; message = req.path==='/api/admin/logo'?'Choose a PNG or JPG logo up to 2MB.':req.path.endsWith('/background')?'Choose one PDF background up to 20MB.':'Invalid upload or file too large. Excel files must be at most 30MB.'; }
+  else if (error instanceof multer.MulterError) { status = 400; message = req.path.startsWith('/api/admin/offline/')?'Choose a JX offline package up to 30MB.':req.path==='/api/admin/logo'?'Choose a PNG or JPG logo up to 2MB.':req.path.endsWith('/background')?'Choose one PDF background up to 20MB.':'Invalid upload or file too large. Excel files must be at most 30MB.'; }
   else if (status >= 500) { console.error('Operation failed:', error.code || error.name); message = 'The operation failed and changes were not saved. Check the database connection or contact an administrator.'; }
   res.status(status).json({ error: message });
 }
@@ -37,7 +37,7 @@ function harden(app, config) {
 }
 function staticFiles(app) {
   app.get(['/', '/index.html'], (req, res) => res.sendFile(path.join(frontend, 'index.html')));
-  for (const file of ['app.js', 'app.css','workflow.js','templates.js','qr-image.js','qr-worker.js','queue-sync.js','tiff-worker.js','atn-options.js','form-fields.js','customer-entry.js','group-sync.js','record-editor.js','mobile-scan.js','queue-editing.js','escpos.js','bluetooth-print.js','table-sort.js','queue-transfer.js','jadual.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
+  for (const file of ['app.js', 'app.css','workflow.js','templates.js','qr-image.js','qr-worker.js','queue-sync.js','tiff-worker.js','atn-options.js','form-fields.js','customer-entry.js','group-sync.js','record-editor.js','mobile-scan.js','queue-editing.js','escpos.js','bluetooth-print.js','table-sort.js','queue-transfer.js','jadual.js','offline.js']) app.get('/' + file, (req, res) => res.sendFile(path.join(frontend, file)));
   for(const resource of ['cmaps','standard_fonts','wasm'])app.use('/vendor/pdfjs/'+resource,express.static(path.join(__dirname,'../node_modules/pdfjs-dist',resource),{dotfiles:'deny'}));
   app.use('/vendor/pdfjs',express.static(path.join(__dirname,'../node_modules/pdfjs-dist/build'),{dotfiles:'deny'}));
   app.get('/vendor/heic-worker.js',(req,res)=>{res.set('Content-Security-Policy',"default-src 'none'; script-src 'self' 'unsafe-eval'; connect-src 'none'");res.sendFile(path.join(frontend,'vendor/heic-worker.js'));});
@@ -64,7 +64,7 @@ async function apiApp(pool, config) {
     }
     next();
   }));
-  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.25.5', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
+  app.get('/api/auth', (req, res) => res.json({ version:'2026.11.26.1', authenticated: !!req.user, csrf: req.session.csrf, ...(req.user ? { user: req.user,login_expires_at:req.session.loginExpiresAt?new Date(req.session.loginExpiresAt).toISOString():null } : {}) }));
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.get('origin');
@@ -154,8 +154,14 @@ async function apiApp(pool, config) {
   route('delete','/api/jobs/:id',(s,r)=>s.deleteJob(r.params.id,r.user),true);
   app.get('/api/jobs/:id/pdf', asyncCall(async (req, res) => fileResponse(res, await service.jobPdf(req.params.id), 'stamping.pdf')));
   app.get('/api/templates/:company/:type',asyncCall(async(req,res)=>fileResponse(res,await require('./form-templates').background(service,req.params.company,req.params.type),'template.pdf')));
+  route('get','/api/offline/status',s=>require('./offline').status(s));
+  app.post('/api/offline/:id/return',asyncCall(async(req,res)=>{const bytes=await service.transaction(s=>require('./offline').returnPackage(s,req.params.id,req.body,req.user));res.type('application/gzip').attachment('JX-Return-'+req.params.id+'.jx.gz').send(bytes);}));
   const admin = (req, res, next) => { check(req.user.role === 'ADMIN', 'Administrator access is required.', 403); next(); };
   app.use(['/api/admin', '/api/import'], admin);
+  app.post('/api/admin/offline/departure',asyncCall(async(req,res)=>{const bytes=await service.transaction(s=>require('./offline').departure(s,req.body,req.user));res.type('application/gzip').attachment('JX-Departure-'+Date.now()+'.jx.gz').send(bytes);}));
+  const offlineUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:30*1024*1024,files:1,fields:4,fieldSize:1024*1024}}).single('file');
+  app.post('/api/admin/offline/preview',offlineUpload,asyncCall(async(req,res)=>{check(req.file,'Choose a JX offline package.');res.json(await service.transaction(s=>require('./offline').preview(s,req.file.buffer)));}));
+  app.post('/api/admin/offline/commit',offlineUpload,asyncCall(async(req,res)=>{check(req.file,'Choose a JX offline package.');res.json(await service.transaction(s=>require('./offline').commit(s,req.file.buffer,req.body,req.user)));}));
   route('post','/api/admin/records/clear',(s,r)=>require('./reset-records').clear(s,r.body,r.user.id),true);
   app.put('/api/admin/network',asyncCall(async(req,res)=>{const next=configModule.validate({...config,publicUrl:text(req.body,'public_url',300)});check(next.publicUrl.startsWith('https://'),'Remote access URL must use HTTPS.');await service.q("INSERT INTO app_settings(setting_key,setting_value) VALUES('public_url',?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)",[next.publicUrl]);config.publicUrl=next.publicUrl;service.publicUrl=next.publicUrl;res.json({success:true,phone_url:service.publicUrl});}));
   const logoUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:2*1024*1024,files:1}}).single('file');

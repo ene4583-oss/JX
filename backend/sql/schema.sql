@@ -198,3 +198,19 @@ CREATE TABLE IF NOT EXISTS app_customer_merges (
  merged_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  INDEX merge_target(target_id)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_offline_trips (
+ id VARCHAR(36) PRIMARY KEY, role VARCHAR(8) NOT NULL, label VARCHAR(150) NOT NULL,
+ secret CHAR(64) NOT NULL, baseline LONGTEXT NOT NULL,
+ created_by VARCHAR(36) NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_offline_applied (
+ trip_id VARCHAR(36) NOT NULL, kind VARCHAR(16) NOT NULL, entity_id VARCHAR(36) NOT NULL,
+ incoming_hash CHAR(64) NOT NULL, local_id VARCHAR(36) NOT NULL, local_hash CHAR(64) NULL,
+ PRIMARY KEY(trip_id,kind,entity_id)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_offline_backups (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, trip_id VARCHAR(36) NOT NULL, kind VARCHAR(16) NOT NULL,
+ entity_id VARCHAR(36) NOT NULL, payload LONGBLOB NOT NULL,
+ imported_by VARCHAR(36) NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

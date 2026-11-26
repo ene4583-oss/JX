@@ -1,6 +1,6 @@
 # Jian Xu Stamping Workspace
 
-Version **2026.11.25.5**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
+Version **2026.11.26.1**. Node.js, HTML, JavaScript and MySQL. No Java installation is required.
 
 ## Start on Windows
 
@@ -447,18 +447,31 @@ Address corrections affect only the selected customer's same-name, same-old-addr
 
 Customer identity is name + address + Kawasan. Add/Edit Product and queue edits change only the current product, attaching it to the matching three-field customer or keeping a private customer record for a product-only contact correction. Existing shared customers are not mutated through product saves or Complete. Only Edit all products/customer Save updates the same old name/address/Kawasan group; other areas, addresses and names stay untouched. Matching an existing destination merges only that group. Legacy name/address customer keys are reused only when Kawasan also matches. Import repair can still fill a missing Kawasan from the same source data.
 
-## Jadual 6 / Jadual 7 from Yearly Record (2026.11.25.5)
+## Jadual 6 / Jadual 7 from Yearly Record (2026.11.26.1)
 
 Complete Record adds Print Jadual 6 (Baru) and Print Jadual 7 (Lama). Only explicitly checked Complete Record entries are used, across searches and pages; product library, import history and Print Queue are excluded. Each stamping occurrence remains its own entry. B/Baru/New maps to Jadual 6; L/Lama/Old to Jadual 7. Unknown conditions are never guessed and block both reports until corrected. Missing required fields block the affected report; review links open the original completed record. Trash records are excluded.
 
 The layouts were extracted only from the Jadual 6 and Jadual 7 sheets of the revised 2026 Yearly Record.xlsm, not the earlier Jadual Format workbook. Its existing static VBA mapping was inspected without executing macros: Perihal uses RecordList G (Brand), S/N is separate, Jadual 6 uses the final registration, and Jadual 7 shows old and final registration. Hidden columns, Perakuan No., quantity and repair-description columns are not added. The supplied statutory headings, visible column order/width ratios, A4 landscape margins, and centered wrapping are retained. Printed Jadual 6 and Jadual 7 PDFs add a thin black table grid around column headings and each record, repeated on every page. Liberation Sans provides Arial-compatible metrics, with the existing CJK font for names requiring it; licenses are included. Printing is read-only and regenerates from saved snapshots, so later live-product edits cannot rewrite historical report values.
 
-## Reconnecting devices (2026.11.25.5)
+## Reconnecting devices (2026.11.26.1)
 
 Connection loss pauses shared-device writes and shows a persistent Reconnect button. Reconnecting replaces local scanned/queue lists and drafts with the server group snapshot. Joining an existing group never uploads the joining browser’s old lists. Only the creator of a new group seeds its initial list. Offline outbox operations are discarded, including older-version outboxes; interrupted edits must be checked and entered again after reconnecting. Explicitly unpaired devices must scan a fresh host group QR.
 
-## Selected Jadual reports and desktop recovery (2026.11.25.5)
+## Selected Jadual reports and desktop recovery (2026.11.26.1)
 
 Select Complete Record rows across searches or pages, then print Jadual 6 or 7. Clearing the search or dates keeps the selection; Clear selection resets it. Counts and PDFs use the explicit saved-record IDs, including checked rows hidden by the current search. Missing/moved selected rows block printing rather than silently dropping entries. At most 2,000 records per selection. Phone connection loss requires Reconnect; computers automatically retry with a fresh server snapshot. Explicitly revoked memberships still need a fresh group QR on any device.
 
 Jadual selection controls show selected/total counts, for example 46/48. Select all matching records and the table header checkbox operate across all result pages. Search can narrow results for deselection without clearing checked rows hidden by the search. The denominator uses the date-filter scope plus any checked records outside that scope.
+
+## Offline field trips — 2026.11.26.1
+
+Management → Offline field trips provides departure/return files (`.jx.gz`). Both computers run the same JX release with Node.js and their own MySQL database. The employee laptop must be installed, started and tested before leaving; no internet is needed when browsing its local server. This is a file transfer between independent databases, not a phone/browser offline cache.
+
+1. On the shop host, enter a trip name and click **Export departure package**. It includes the active customer/product library, original product UUIDs, optional browser queue, uploaded form backgrounds/layouts and logo. Existing Complete Record PDFs are excluded by default; check the optional history box only when needed.
+2. On the employee laptop, sign in as its local administrator, choose that departure, **Preview import**, review any conflicts, check **This is the employee laptop**, then **Import reviewed package**. A fresh database can be filled directly from this file; a manual SQL restore is not required. Existing local data is compared, not blindly replaced. If this is a clone of the host SQL database, the explicit employee-computer confirmation changes only this database’s trip role.
+3. Optionally click **Add imported products / queue to this browser**. Test adding/editing products and generating a PDF without external internet. Work is saved in the laptop’s MySQL database. Staff accounts and passwords are configured on that laptop and are never carried by these packages.
+4. Before returning, open the same panel and **Export return package** beside the appropriate employee trip. On the original shop host, choose that return file, preview and resolve every conflict, then import. Newly completed PDFs and their snapshots are preserved; normal Excel export/Jadual reports include the imported Complete Records. Pending queue/scanned-list transfer is a separate optional add step that retains the shop browser’s existing queue.
+
+Only changed/new business data is returned. Three-way comparison uses the departure baseline and per-record import receipts. Reimporting the same return file does not duplicate records or overwrite a later host edit. A changed preview is rejected and the entire import transaction rolls back on error. Matching customers use name + address + Kawasan; distinct product UUIDs and their QR identity remain intact. Conflicts display Local/Incoming values and require an explicit decision. Replaced rows receive compressed internal backups. Removed completed forms are moved to Trash, retaining products; customer/product deletions are not propagated. Imported record authors are attributed to the importing local administrator; original saved PDF contents remain unchanged.
+
+Packages are limited to 30MB compressed / 128MB expanded, with at most 20,000 rows per entity type. Optional historical PDFs can make a departure too large; normally leave that box unchecked and return work in smaller trips/batches if necessary. Existing local templates/logo are retained; missing ones are filled from departure assets. MySQL credentials, account/password tables, HTTP sessions, pairing groups and website URL are excluded. Use the laptop’s own `.env`; never overwrite the shop database with the laptop SQL backup.
